@@ -3,360 +3,178 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Serverless — Cloud 3D Lab</title>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+  <title>Serverless · Cloud 3D Lab</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { overflow: hidden; background: #06060f; font-family: 'Outfit', sans-serif; color: #fff; }
-    canvas { display: block; }
-    .back-btn {
-      position: fixed; top: 20px; left: 20px; z-index: 20;
-      background: rgba(255,190,11,0.1); border: 1px solid rgba(255,190,11,0.3);
-      color: #ffbe0b; padding: 8px 18px; border-radius: 20px;
-      font-family: 'Space Mono', monospace; font-size: 13px;
-      cursor: pointer; text-decoration: none; backdrop-filter: blur(8px);
-    }
-    #title-bar {
-      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
-      text-align: center; z-index: 15;
-    }
-    #title-bar h1 { font-family: 'Space Mono', monospace; font-size: 22px; color: #ffbe0b; }
-    #title-bar p { font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 4px; }
-
-    #trigger-panel {
-      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
-      z-index: 20; background: rgba(6,6,15,0.85); border: 1px solid rgba(255,190,11,0.15);
-      border-radius: 20px; padding: 20px 28px; backdrop-filter: blur(16px);
-      display: flex; gap: 12px; align-items: center;
-    }
-    .trigger-btn {
-      padding: 12px 20px; border-radius: 12px; border: 1px solid rgba(255,190,11,0.3);
-      background: transparent; color: rgba(255,255,255,0.6); font-family: 'Space Mono', monospace;
-      font-size: 12px; cursor: pointer; transition: all 0.3s;
-    }
-    .trigger-btn:hover { background: rgba(255,190,11,0.15); color: #ffbe0b; border-color: #ffbe0b; }
-    .trigger-btn:active { transform: scale(0.95); }
-
-    #metrics {
-      position: fixed; top: 80px; right: 20px; z-index: 15;
-      background: rgba(6,6,15,0.8); border: 1px solid rgba(255,190,11,0.1);
-      border-radius: 14px; padding: 20px; width: 220px; backdrop-filter: blur(12px);
-    }
-    #metrics h3 { font-family: 'Space Mono', monospace; font-size: 13px; color: #ffbe0b; margin-bottom: 12px; }
-    .m-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: rgba(255,255,255,0.5); }
-    .m-row .val { color: #ffbe0b; font-family: 'Space Mono', monospace; font-weight: 700; }
-
-    #info-panel {
-      position: fixed; top: 80px; left: 20px; z-index: 15;
-      background: rgba(6,6,15,0.8); border: 1px solid rgba(255,190,11,0.1);
-      border-radius: 14px; padding: 20px; width: 260px;
-      backdrop-filter: blur(12px); font-size: 13px; line-height: 1.7;
-      color: rgba(255,255,255,0.5);
-    }
-    #info-panel h3 { font-family: 'Space Mono', monospace; font-size: 13px; color: #ffbe0b; margin-bottom: 8px; }
-    .hl { color: #ffbe0b; font-weight: 500; }
-
-    #log {
-      position: fixed; bottom: 100px; left: 20px; z-index: 15;
-      background: rgba(6,6,15,0.8); border: 1px solid rgba(255,190,11,0.08);
-      border-radius: 10px; padding: 12px 16px; width: 320px; max-height: 160px;
-      overflow-y: auto; backdrop-filter: blur(12px);
-      font-family: 'Space Mono', monospace; font-size: 11px; color: rgba(255,255,255,0.35);
-    }
-    .log-entry { margin-bottom: 4px; }
-    .log-cold { color: #f72585; }
-    .log-warm { color: #00f5d4; }
-    .log-done { color: #ffbe0b; }
+    :root{--amber:#ffbe0b;--cyan:#00f5d4;--pink:#f72585;--blue:#3a86ff;--violet:#7b61ff;--bg:#050510;--surface:rgba(8,8,24,0.88)}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{overflow:hidden;background:var(--bg);font-family:'DM Sans',sans-serif;color:#fff}
+    canvas{display:block;position:fixed;top:0;left:0}
+    .back{position:fixed;top:24px;left:24px;z-index:20;text-decoration:none;color:rgba(255,255,255,0.4);font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:1px;transition:color 0.3s;display:flex;align-items:center;gap:8px}
+    .back:hover{color:var(--amber)}
+    .back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2}
+    #title{position:fixed;top:24px;left:50%;transform:translateX(-50%);z-index:15;text-align:center}
+    #title h1{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--amber);text-shadow:0 0 30px rgba(255,190,11,0.3)}
+    #title p{font-size:12px;color:rgba(255,255,255,0.3);margin-top:4px;letter-spacing:2px;text-transform:uppercase}
+    #triggers{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:10px;background:var(--surface);backdrop-filter:blur(20px);border:1px solid rgba(255,190,11,0.08);border-radius:16px;padding:14px 22px}
+    .trig{position:relative;padding:12px 22px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:rgba(255,255,255,0.5);font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;transition:all 0.3s;overflow:hidden}
+    .trig::before{content:'';position:absolute;bottom:0;left:0;width:100%;height:2px;background:var(--trig-color);transform:scaleX(0);transition:transform 0.3s;transform-origin:left}
+    .trig:hover{color:#fff;border-color:var(--trig-color);background:rgba(255,255,255,0.03)}
+    .trig:hover::before{transform:scaleX(1)}
+    .trig:active{transform:scale(0.96)}
+    .trig[data-src="api"]{--trig-color:var(--blue)}.trig[data-src="s3"]{--trig-color:var(--cyan)}.trig[data-src="sqs"]{--trig-color:var(--pink)}.trig[data-src="cron"]{--trig-color:var(--violet)}
+    .trig-icon{font-size:16px;display:block;margin-bottom:4px}
+    #info{position:fixed;top:80px;left:24px;z-index:15;background:var(--surface);backdrop-filter:blur(20px);border:1px solid rgba(255,190,11,0.06);border-radius:14px;padding:22px;width:260px}
+    #info h3{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--amber);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+    #info p{font-size:12.5px;color:rgba(255,255,255,0.4);line-height:1.8;font-weight:300}
+    #info .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700}
+    .tag-cold{background:rgba(247,37,133,0.15);color:var(--pink)}.tag-warm{background:rgba(0,245,212,0.15);color:var(--cyan)}
+    #metrics{position:fixed;top:80px;right:24px;z-index:15;background:var(--surface);backdrop-filter:blur(20px);border:1px solid rgba(255,190,11,0.06);border-radius:14px;padding:22px;width:200px}
+    #metrics h3{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--amber);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px}
+    .metric{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)}.metric:last-child{border:none}
+    .metric-label{font-size:11px;color:rgba(255,255,255,0.35)}
+    .metric-val{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--amber)}.metric-val.cold{color:var(--pink)}.metric-val.warm{color:var(--cyan)}.metric-val.dur{color:var(--violet)}
+    #log{position:fixed;bottom:100px;left:24px;z-index:15;background:var(--surface);backdrop-filter:blur(20px);border:1px solid rgba(255,190,11,0.04);border-radius:10px;padding:14px;width:340px;max-height:180px;overflow-y:auto}
+    #log::-webkit-scrollbar{width:3px}#log::-webkit-scrollbar-thumb{background:rgba(255,190,11,0.2);border-radius:2px}
+    .log-entry{font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 0;color:rgba(255,255,255,0.25);border-bottom:1px solid rgba(255,255,255,0.02)}
+    .log-entry.cold{color:var(--pink)}.log-entry.warm{color:var(--cyan)}.log-entry.done{color:var(--amber)}.log-ts{opacity:0.5}
   </style>
 </head>
 <body>
-  <a class="back-btn" href="index.html">← Hub</a>
-  <div id="title-bar">
-    <h1>λ Serverless</h1>
-    <p>Functions that scale to zero</p>
+  <a class="back" href="index.html"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg> Hub</a>
+  <div id="title"><h1>λ Serverless</h1><p>Functions that scale to zero</p></div>
+  <div id="info"><h3>How It Works</h3><p>Lambda runs your code without servers. Each invocation either gets a <span class="tag tag-cold">COLD START</span> (new container) or a <span class="tag tag-warm">WARM START</span> (reused container).<br><br>Click event sources below to trigger functions. Watch containers spin up, execute, and eventually scale to zero.</p></div>
+  <div id="metrics"><h3>Metrics</h3>
+    <div class="metric"><span class="metric-label">Invocations</span><span class="metric-val" id="m-inv">0</span></div>
+    <div class="metric"><span class="metric-label">Cold Starts</span><span class="metric-val cold" id="m-cold">0</span></div>
+    <div class="metric"><span class="metric-label">Warm Starts</span><span class="metric-val warm" id="m-warm">0</span></div>
+    <div class="metric"><span class="metric-label">Active Now</span><span class="metric-val" id="m-active">0</span></div>
+    <div class="metric"><span class="metric-label">Avg Duration</span><span class="metric-val dur" id="m-dur">0ms</span></div>
   </div>
-
-  <div id="info-panel">
-    <h3>How It Works</h3>
-    <span class="hl">Lambda functions</span> run code without provisioning servers.
-    <br><br>
-    <span class="hl">Cold start</span>: First invocation spins up a new container (slower).
-    <span class="hl">Warm start</span>: Reuses existing container (faster).
-    <br><br>
-    Click event sources to trigger functions and watch the execution lifecycle.
+  <div id="triggers">
+    <button class="trig" data-src="api"><span class="trig-icon">🌐</span>API Gateway</button>
+    <button class="trig" data-src="s3"><span class="trig-icon">📁</span>S3 Event</button>
+    <button class="trig" data-src="sqs"><span class="trig-icon">📨</span>SQS Queue</button>
+    <button class="trig" data-src="cron"><span class="trig-icon">⏰</span>CloudWatch</button>
   </div>
-
-  <div id="metrics">
-    <h3>Metrics</h3>
-    <div class="m-row"><span>Invocations</span><span class="val" id="invocations">0</span></div>
-    <div class="m-row"><span>Cold Starts</span><span class="val" id="cold-starts">0</span></div>
-    <div class="m-row"><span>Warm Starts</span><span class="val" id="warm-starts">0</span></div>
-    <div class="m-row"><span>Active</span><span class="val" id="active">0</span></div>
-    <div class="m-row"><span>Avg Duration</span><span class="val" id="avg-dur">0ms</span></div>
-  </div>
-
-  <div id="trigger-panel">
-    <button class="trigger-btn" data-source="api">🌐 API Gateway</button>
-    <button class="trigger-btn" data-source="s3">📁 S3 Event</button>
-    <button class="trigger-btn" data-source="sqs">📨 SQS Message</button>
-    <button class="trigger-btn" data-source="schedule">⏰ Schedule</button>
-  </div>
-
   <div id="log"></div>
 
-  <script type="importmap">
-  { "imports": { "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js" } }
-  </script>
+  <script type="importmap">{"imports":{"three":"https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js"}}</script>
   <script type="module">
     import * as THREE from 'three';
-
-    const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x06060f, 0.025);
-    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
-    camera.position.set(0, 10, 18);
-    camera.lookAt(0, 1, 0);
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    const renderer=new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(window.innerWidth,window.innerHeight);renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+    renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;
     document.body.appendChild(renderer.domElement);
+    const scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x050510,0.018);
+    const camera=new THREE.PerspectiveCamera(50,window.innerWidth/window.innerHeight,0.1,200);
+    camera.position.set(2,12,22);camera.lookAt(2,0,0);
+    scene.add(new THREE.AmbientLight(0x303060,0.35));
+    const keyLight=new THREE.DirectionalLight(0xffeedd,0.6);keyLight.position.set(8,15,8);keyLight.castShadow=true;keyLight.shadow.mapSize.set(2048,2048);keyLight.shadow.camera.left=-20;keyLight.shadow.camera.right=20;keyLight.shadow.camera.top=20;keyLight.shadow.camera.bottom=-20;scene.add(keyLight);
+    const warmGlow=new THREE.PointLight(0xffbe0b,1.2,20);warmGlow.position.set(2,8,0);scene.add(warmGlow);
+    scene.add(Object.assign(new THREE.PointLight(0x3a86ff,0.8,25),{position:new THREE.Vector3(-6,5,-5)}));
+    const ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80),new THREE.MeshStandardMaterial({color:0x08081a,roughness:0.95,metalness:0.1}));
+    ground.rotation.x=-Math.PI/2;ground.position.y=-0.5;ground.receiveShadow=true;scene.add(ground);
+    scene.add(Object.assign(new THREE.GridHelper(80,80,0x14143a,0x0e0e28),{position:new THREE.Vector3(0,-0.49,0)}));
+    // Stars
+    const stG=new THREE.BufferGeometry();const stP=new Float32Array(1500*3);for(let i=0;i<1500*3;i++)stP[i]=(Math.random()-0.5)*120;
+    stG.setAttribute('position',new THREE.BufferAttribute(stP,3));
+    const stars=new THREE.Points(stG,new THREE.PointsMaterial({color:0xffffff,size:0.08,transparent:true,opacity:0.5}));scene.add(stars);
 
-    scene.add(new THREE.AmbientLight(0x404060, 0.4));
-    const dir = new THREE.DirectionalLight(0xffeedd, 0.7);
-    dir.position.set(5, 12, 5); dir.castShadow = true; scene.add(dir);
-    scene.add(Object.assign(new THREE.PointLight(0xffbe0b, 1.5, 25), { position: new THREE.Vector3(0, 6, 0) }));
-
-    // Ground
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x080820 }));
-    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.5; ground.receiveShadow = true; scene.add(ground);
-    scene.add(Object.assign(new THREE.GridHelper(60, 60, 0x151540, 0x0f0f30), { position: new THREE.Vector3(0, -0.49, 0) }));
-
-    // Event sources (left side)
-    const sourcePositions = {
-      api: new THREE.Vector3(-8, 2, -4),
-      s3: new THREE.Vector3(-8, 2, -1.3),
-      sqs: new THREE.Vector3(-8, 2, 1.3),
-      schedule: new THREE.Vector3(-8, 2, 4)
-    };
-    const sourceColors = { api: 0x3a86ff, s3: 0x00f5d4, sqs: 0xf72585, schedule: 0x7b61ff };
-
-    Object.entries(sourcePositions).forEach(([key, pos]) => {
-      const m = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.5, 0.5, 0.3, 6),
-        new THREE.MeshStandardMaterial({ color: sourceColors[key], emissive: sourceColors[key], emissiveIntensity: 0.3, metalness: 0.7 })
-      );
-      m.position.copy(pos); m.castShadow = true; scene.add(m);
+    // Event sources
+    const srcData=[{key:'api',color:0x3a86ff,y:-4.5},{key:'s3',color:0x00f5d4,y:-1.5},{key:'sqs',color:0xf72585,y:1.5},{key:'cron',color:0x7b61ff,y:4.5}];
+    const srcMeshes={};
+    srcData.forEach(s=>{const g=new THREE.Group();
+      const pillar=new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.55,0.35,6),new THREE.MeshStandardMaterial({color:s.color,emissive:s.color,emissiveIntensity:0.2,metalness:0.7,roughness:0.25}));pillar.castShadow=true;g.add(pillar);
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(0.75,0.025,8,32),new THREE.MeshBasicMaterial({color:s.color,transparent:true,opacity:0.2}));ring.rotation.x=Math.PI/2;g.add(ring);
+      g.position.set(-9,2,s.y);scene.add(g);srcMeshes[s.key]={group:g,pillar,ring,color:s.color};
+      // Static line to hub
+      const pts=[g.position.clone(),new THREE.Vector3(2,3.5,0)];
+      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:s.color,transparent:true,opacity:0.06})));
     });
 
-    // Lambda service (center)
-    const lambdaHub = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(1.2, 0),
-      new THREE.MeshStandardMaterial({ color: 0xffbe0b, emissive: 0xffbe0b, emissiveIntensity: 0.25, metalness: 0.8, roughness: 0.2 })
-    );
-    lambdaHub.position.set(0, 2.5, 0); lambdaHub.castShadow = true; scene.add(lambdaHub);
-    const hubRing = new THREE.Mesh(
-      new THREE.TorusGeometry(1.8, 0.04, 16, 60),
-      new THREE.MeshBasicMaterial({ color: 0xffbe0b, transparent: true, opacity: 0.3 })
-    );
-    hubRing.position.copy(lambdaHub.position); hubRing.rotation.x = Math.PI / 2; scene.add(hubRing);
+    // Lambda hub
+    const hub=new THREE.Mesh(new THREE.IcosahedronGeometry(1.3,1),new THREE.MeshStandardMaterial({color:0xffbe0b,emissive:0xffbe0b,emissiveIntensity:0.2,metalness:0.85,roughness:0.15}));
+    hub.position.set(2,3.5,0);hub.castShadow=true;scene.add(hub);
+    const hR1=new THREE.Mesh(new THREE.TorusGeometry(2,0.035,16,64),new THREE.MeshBasicMaterial({color:0xffbe0b,transparent:true,opacity:0.2}));
+    hR1.position.copy(hub.position);hR1.rotation.x=Math.PI/2;scene.add(hR1);
+    const hR2=hR1.clone();hR2.material=hR1.material.clone();hR2.material.opacity=0.1;hR2.rotation.x=Math.PI/2.5;hR2.rotation.z=0.5;scene.add(hR2);
 
-    // Function execution slots (right)
-    const slotPositions = [];
-    for (let row = 0; row < 3; row++) {
-      for (let col = 0; col < 3; col++) {
-        slotPositions.push(new THREE.Vector3(5 + col * 2.2, 1, -3 + row * 3));
-      }
+    // Function slots
+    const ROWS=3,COLS=4,slots=[];
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+      const g=new THREE.Group();
+      const base=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.1,1.6),new THREE.MeshStandardMaterial({color:0x12123a,metalness:0.4,roughness:0.7}));base.receiveShadow=true;g.add(base);
+      const wf=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.6,0.1,1.6)),new THREE.LineBasicMaterial({color:0xffbe0b,transparent:true,opacity:0.06}));g.add(wf);
+      const ctr=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.01,1.2),new THREE.MeshStandardMaterial({color:0xffbe0b,emissive:0xffbe0b,emissiveIntensity:0,metalness:0.6,roughness:0.3,transparent:true,opacity:0}));ctr.position.y=0.5;ctr.castShadow=true;g.add(ctr);
+      const sl=new THREE.Mesh(new THREE.SphereGeometry(0.06,8,8),new THREE.MeshBasicMaterial({color:0x333333,transparent:true,opacity:0.5}));sl.position.set(0.65,0.08,0.65);g.add(sl);
+      g.position.set(8+c*2.2,-3.3+r*3.3===undefined?0:0,0);
+      g.position.set(8+c*2.2,0,-3.3+r*3.3);
+      g.userData={active:false,executing:false,warmUntil:0,container:ctr,statusLight:sl,wireframe:wf};
+      scene.add(g);slots.push(g);
     }
-
-    const functionSlots = slotPositions.map(pos => {
-      const g = new THREE.Group();
-      // Base platform
-      const base = new THREE.Mesh(
-        new THREE.BoxGeometry(1.5, 0.15, 1.5),
-        new THREE.MeshStandardMaterial({ color: 0x1a1a3e, metalness: 0.5 })
-      );
-      g.add(base);
-      // Container (hidden initially)
-      const container = new THREE.Mesh(
-        new THREE.BoxGeometry(1.2, 0.01, 1.2),
-        new THREE.MeshStandardMaterial({ color: 0xffbe0b, emissive: 0xffbe0b, emissiveIntensity: 0, metalness: 0.6, transparent: true, opacity: 0 })
-      );
-      container.position.y = 0.4;
-      g.add(container);
-      g.position.copy(pos);
-      g.userData = { active: false, container, warmUntil: 0, executing: false };
-      scene.add(g);
-      return g;
-    });
 
     // Stats
-    let stats = { invocations: 0, coldStarts: 0, warmStarts: 0, active: 0, durations: [] };
-    const logEl = document.getElementById('log');
+    const stats={inv:0,cold:0,warm:0,active:0,durations:[]};const logEl=document.getElementById('log');
+    function ts(){const d=new Date();return d.toLocaleTimeString('en',{hour12:false})+'.'+String(d.getMilliseconds()).padStart(3,'0')}
+    function addLog(t,c){const d=document.createElement('div');d.className='log-entry '+c;d.innerHTML=`<span class="log-ts">${ts()}</span>  ${t}`;logEl.prepend(d);if(logEl.children.length>40)logEl.removeChild(logEl.lastChild)}
+    function updateUI(){document.getElementById('m-inv').textContent=stats.inv;document.getElementById('m-cold').textContent=stats.cold;document.getElementById('m-warm').textContent=stats.warm;document.getElementById('m-active').textContent=stats.active;const avg=stats.durations.length>0?Math.round(stats.durations.reduce((a,b)=>a+b,0)/stats.durations.length):0;document.getElementById('m-dur').textContent=avg+'ms'}
 
-    function addLog(text, cls) {
-      const div = document.createElement('div');
-      div.className = 'log-entry ' + cls;
-      div.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
-      logEl.prepend(div);
-      if (logEl.children.length > 30) logEl.removeChild(logEl.lastChild);
+    // Packets
+    const packets=[];
+    function createPacket(from,to,color,speed,onDone){
+      const mesh=new THREE.Mesh(new THREE.SphereGeometry(0.09,8,8),new THREE.MeshBasicMaterial({color,transparent:true,opacity:1}));
+      mesh.position.copy(from);mesh.add(new THREE.PointLight(color,0.5,3));scene.add(mesh);
+      packets.push({mesh,from:from.clone(),to:to.clone(),progress:0,speed,onDone});
     }
 
-    function updateMetrics() {
-      document.getElementById('invocations').textContent = stats.invocations;
-      document.getElementById('cold-starts').textContent = stats.coldStarts;
-      document.getElementById('warm-starts').textContent = stats.warmStarts;
-      document.getElementById('active').textContent = stats.active;
-      const avg = stats.durations.length > 0
-        ? Math.round(stats.durations.reduce((a, b) => a + b, 0) / stats.durations.length)
-        : 0;
-      document.getElementById('avg-dur').textContent = avg + 'ms';
+    // Invoke
+    function invoke(source){
+      stats.inv++;const now=performance.now();const srcObj=srcMeshes[source];
+      srcObj.pillar.material.emissiveIntensity=0.8;setTimeout(()=>srcObj.pillar.material.emissiveIntensity=0.2,300);
+      let slot=slots.find(s=>!s.userData.executing&&s.userData.warmUntil>now);let isCold=!slot;
+      if(!slot)slot=slots.find(s=>!s.userData.executing&&!s.userData.active);
+      if(!slot)slot=slots.find(s=>!s.userData.executing);
+      if(!slot){addLog('ALL SLOTS BUSY','cold');return}
+      if(isCold){stats.cold++;addLog(`COLD  [${source.toUpperCase()}] → slot ${slots.indexOf(slot)}`,'cold')}
+      else{stats.warm++;addLog(`WARM  [${source.toUpperCase()}] → slot ${slots.indexOf(slot)}`,'warm')}
+      createPacket(srcObj.group.position.clone(),hub.position.clone(),srcObj.color,0.03,()=>{
+        createPacket(hub.position.clone(),slot.position.clone().setY(2),0xffbe0b,0.025,()=>executeSlot(slot,isCold));
+      });updateUI();
     }
 
-    // Invoke a function
-    const eventPackets = [];
-
-    function invokeFunction(source) {
-      stats.invocations++;
-      const now = performance.now();
-
-      // Find a warm slot first, then a free slot
-      let slot = functionSlots.find(s => !s.userData.executing && s.userData.warmUntil > now);
-      let isCold = false;
-
-      if (!slot) {
-        slot = functionSlots.find(s => !s.userData.executing && !s.userData.active);
-        isCold = true;
-      }
-      if (!slot) {
-        slot = functionSlots.find(s => !s.userData.executing);
-        isCold = true;
-      }
-      if (!slot) { addLog('All slots busy!', 'log-cold'); return; }
-
-      if (isCold) {
-        stats.coldStarts++;
-        addLog(`COLD START [${source}] → Slot ${functionSlots.indexOf(slot)}`, 'log-cold');
-      } else {
-        stats.warmStarts++;
-        addLog(`WARM START [${source}] → Slot ${functionSlots.indexOf(slot)}`, 'log-warm');
-      }
-
-      // Send event packet
-      const p = new THREE.Mesh(
-        new THREE.SphereGeometry(0.08, 8, 8),
-        new THREE.MeshBasicMaterial({ color: sourceColors[source] })
-      );
-      p.position.copy(sourcePositions[source]);
-      const waypoints = [sourcePositions[source].clone(), lambdaHub.position.clone(), slot.position.clone().setY(2)];
-      p.userData = { waypoints, idx: 0, progress: 0, speed: 0.025, slot, isCold, source };
-      scene.add(p);
-      eventPackets.push(p);
+    function executeSlot(slot,isCold){
+      const ud=slot.userData;ud.executing=true;ud.active=true;stats.active++;updateUI();
+      const ctr=ud.container;const duration=isCold?600+Math.random()*1400:80+Math.random()*250;const tgtY=60+Math.random()*30;
+      ud.statusLight.material.color.setHex(isCold?0xf72585:0x00f5d4);ud.statusLight.material.opacity=1;ud.wireframe.material.opacity=0.2;
+      const gs=performance.now(),gd=isCold?400:80;
+      const gi=setInterval(()=>{const p=Math.min((performance.now()-gs)/gd,1);const e=1-Math.pow(1-p,3);ctr.scale.y=e*tgtY;ctr.material.opacity=e;ctr.material.emissiveIntensity=0.25*e;ctr.material.color.setHex(isCold?0xf72585:0x00f5d4);ctr.material.emissive.setHex(isCold?0xf72585:0x00f5d4);if(p>=1)clearInterval(gi)},16);
+      setTimeout(()=>{
+        stats.durations.push(Math.round(duration));if(stats.durations.length>60)stats.durations.shift();
+        addLog(`DONE  [${Math.round(duration)}ms] slot ${slots.indexOf(slot)}`,'done');
+        ud.executing=false;ud.warmUntil=performance.now()+10000;stats.active--;
+        ud.statusLight.material.color.setHex(0xffbe0b);ctr.material.color.setHex(0xffbe0b);ctr.material.emissive.setHex(0xffbe0b);ctr.material.emissiveIntensity=0.15;updateUI();
+        setTimeout(()=>{if(!ud.executing&&performance.now()>ud.warmUntil){const ss=performance.now();const si=setInterval(()=>{const p=Math.min((performance.now()-ss)/600,1);ctr.scale.y=(1-p)*tgtY;ctr.material.opacity=1-p;ctr.material.emissiveIntensity=0.15*(1-p);ud.wireframe.material.opacity=0.06+0.14*(1-p);ud.statusLight.material.opacity=0.5*(1-p)+0.3;if(p>=1){clearInterval(si);ud.active=false;ud.statusLight.material.color.setHex(0x333333);ud.statusLight.material.opacity=0.5}},16)}},10000);
+      },duration);
     }
 
-    function executeSlot(slot, isCold) {
-      slot.userData.executing = true;
-      slot.userData.active = true;
-      stats.active++;
-      updateMetrics();
+    document.querySelectorAll('.trig').forEach(b=>b.addEventListener('click',()=>invoke(b.dataset.src)));
+    setInterval(()=>invoke('cron'),5000);
 
-      const container = slot.userData.container;
-      const duration = isCold ? 800 + Math.random() * 1200 : 100 + Math.random() * 300;
-
-      // Animate container up
-      const startTime = performance.now();
-      const growInterval = setInterval(() => {
-        const elapsed = performance.now() - startTime;
-        const growDuration = isCold ? 500 : 100;
-        const p = Math.min(elapsed / growDuration, 1);
-        container.scale.y = p * 80;
-        container.material.opacity = p;
-        container.material.emissiveIntensity = 0.3 * p;
-        if (p >= 1) clearInterval(growInterval);
-      }, 16);
-
-      setTimeout(() => {
-        stats.durations.push(Math.round(duration));
-        if (stats.durations.length > 50) stats.durations.shift();
-        addLog(`DONE [${Math.round(duration)}ms] Slot ${functionSlots.indexOf(slot)}`, 'log-done');
-
-        slot.userData.executing = false;
-        slot.userData.warmUntil = performance.now() + 8000; // warm for 8s
-        stats.active--;
-        updateMetrics();
-
-        // Shrink after warm period
-        setTimeout(() => {
-          if (!slot.userData.executing && performance.now() > slot.userData.warmUntil) {
-            const shrinkStart = performance.now();
-            const shrinkInterval = setInterval(() => {
-              const p = Math.min((performance.now() - shrinkStart) / 400, 1);
-              container.scale.y = (1 - p) * 80;
-              container.material.opacity = 1 - p;
-              container.material.emissiveIntensity = 0.3 * (1 - p);
-              if (p >= 1) { clearInterval(shrinkInterval); slot.userData.active = false; }
-            }, 16);
-          }
-        }, 8000);
-      }, duration);
-    }
-
-    // Trigger buttons
-    document.querySelectorAll('.trigger-btn').forEach(btn => {
-      btn.addEventListener('click', () => invokeFunction(btn.dataset.source));
-    });
-
-    // Auto-trigger schedule
-    setInterval(() => invokeFunction('schedule'), 4000);
-
-    const clock = new THREE.Clock();
-
-    function animate() {
-      requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
-
-      lambdaHub.rotation.y = t * 0.3;
-      lambdaHub.rotation.x = Math.sin(t * 0.5) * 0.1;
-      hubRing.rotation.z = t * 0.4;
-      lambdaHub.position.y = 2.5 + Math.sin(t * 2) * 0.1;
-
-      // Update event packets
-      for (let i = eventPackets.length - 1; i >= 0; i--) {
-        const p = eventPackets[i];
-        const wp = p.userData.waypoints;
-        const idx = p.userData.idx;
-        if (idx >= wp.length - 1) {
-          executeSlot(p.userData.slot, p.userData.isCold);
-          scene.remove(p);
-          eventPackets.splice(i, 1);
-          continue;
-        }
-        p.userData.progress += p.userData.speed;
-        p.position.lerpVectors(wp[idx], wp[idx + 1], p.userData.progress);
-        if (p.userData.progress >= 1) {
-          p.userData.idx++;
-          p.userData.progress = 0;
-        }
-      }
-
-      // Pulse active slots
-      functionSlots.forEach(s => {
-        if (s.userData.executing) {
-          s.userData.container.material.emissiveIntensity = 0.3 + Math.sin(t * 8) * 0.2;
-        }
-      });
-
-      updateMetrics();
-      renderer.render(scene, camera);
+    const clock=new THREE.Clock();
+    function animate(){
+      requestAnimationFrame(animate);const t=clock.getElapsedTime();
+      hub.rotation.y=t*0.25;hub.rotation.x=Math.sin(t*0.4)*0.08;hub.position.y=3.5+Math.sin(t*1.8)*0.15;
+      hR1.rotation.z=t*0.3;hR2.rotation.z=-t*0.2;hR1.position.y=hub.position.y;hR2.position.y=hub.position.y;
+      warmGlow.intensity=1.2+Math.sin(t*2)*0.3;
+      Object.values(srcMeshes).forEach((s,i)=>{s.group.position.y=2+Math.sin(t*1.2+i*1.5)*0.12;s.ring.rotation.z=t*0.4+i});
+      slots.forEach((s,i)=>{if(s.userData.executing)s.userData.container.material.emissiveIntensity=0.25+Math.sin(t*6+i)*0.15});
+      for(let i=packets.length-1;i>=0;i--){const p=packets[i];p.progress+=p.speed;if(p.progress>=1){if(p.onDone)p.onDone();scene.remove(p.mesh);packets.splice(i,1)}else{p.mesh.position.lerpVectors(p.from,p.to,p.progress);p.mesh.material.opacity=1-p.progress*0.4}}
+      stars.rotation.y+=0.00008;renderer.render(scene,camera);
     }
     animate();
-
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
+    window.addEventListener('resize',()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight)});
   </script>
 </body>
 </html>
