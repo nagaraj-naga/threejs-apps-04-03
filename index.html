@@ -3,312 +3,288 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Three.js Interactive Scene</title>
+  <title>Cloud Concepts 3D Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
-    canvas { display: block; }
-    #info {
-      position: absolute;
-      top: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: #fff;
-      background: rgba(0,0,0,0.5);
-      padding: 8px 20px;
-      border-radius: 20px;
-      font-size: 14px;
-      pointer-events: none;
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(255,255,255,0.1);
+    body { overflow: hidden; background: #06060f; font-family: 'Outfit', sans-serif; }
+    canvas { display: block; position: fixed; top: 0; left: 0; z-index: 0; }
+
+    #overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 10; pointer-events: none;
+      display: flex; flex-direction: column; align-items: center;
     }
-    #stats {
+
+    #header {
+      padding: 40px 40px 20px;
+      text-align: center;
+      pointer-events: auto;
+    }
+    #header h1 {
+      font-family: 'Space Mono', monospace;
+      font-size: clamp(28px, 5vw, 52px);
+      font-weight: 700;
+      background: linear-gradient(135deg, #00f5d4, #7b61ff, #f72585);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -1px;
+      line-height: 1.1;
+    }
+    #header p {
+      font-family: 'Outfit', sans-serif;
+      color: rgba(255,255,255,0.45);
+      font-size: 15px;
+      font-weight: 300;
+      margin-top: 8px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    #cards-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      pointer-events: auto;
+      width: 100%;
+      max-width: 1200px;
+    }
+
+    #cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      width: 100%;
+    }
+
+    .card {
+      position: relative;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
+      padding: 32px 28px;
+      cursor: pointer;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      text-decoration: none;
+      display: block;
+      overflow: hidden;
+      backdrop-filter: blur(12px);
+    }
+    .card::before {
+      content: '';
       position: absolute;
-      bottom: 16px;
-      left: 16px;
-      color: rgba(255,255,255,0.5);
-      font-size: 12px;
-      pointer-events: none;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .card:hover {
+      transform: translateY(-6px) scale(1.02);
+      background: rgba(255,255,255,0.06);
+      border-color: var(--accent);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px var(--glow);
+    }
+    .card:hover::before { opacity: 1; }
+
+    .card-icon {
+      font-size: 36px;
+      margin-bottom: 16px;
+      display: block;
+      filter: drop-shadow(0 0 12px var(--glow));
+    }
+    .card-title {
+      font-family: 'Space Mono', monospace;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .card-desc {
+      font-size: 14px;
+      color: rgba(255,255,255,0.4);
+      font-weight: 300;
+      line-height: 1.6;
+    }
+    .card-tag {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      opacity: 0.7;
+    }
+
+    .card[data-topic="autoscaling"] { --accent: #00f5d4; --glow: rgba(0,245,212,0.2); }
+    .card[data-topic="loadbalancer"] { --accent: #7b61ff; --glow: rgba(123,97,255,0.2); }
+    .card[data-topic="vpc"] { --accent: #f72585; --glow: rgba(247,37,133,0.2); }
+    .card[data-topic="serverless"] { --accent: #ffbe0b; --glow: rgba(255,190,11,0.2); }
+    .card[data-topic="containers"] { --accent: #3a86ff; --glow: rgba(58,134,255,0.2); }
+    .card[data-topic="cdn"] { --accent: #fb5607; --glow: rgba(251,86,7,0.2); }
+
+    #footer {
+      padding: 20px;
+      text-align: center;
+      pointer-events: auto;
+    }
+    #footer span {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: rgba(255,255,255,0.2);
+      letter-spacing: 2px;
+    }
+
+    /* Entry animations */
+    .card { opacity: 0; transform: translateY(30px); }
+    .card.visible {
+      animation: cardIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes cardIn {
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
-  <div id="info">🖱️ Drag to orbit · Scroll to zoom · Click objects to interact</div>
-  <div id="stats"></div>
+  <canvas id="bg"></canvas>
+
+  <div id="overlay">
+    <div id="header">
+      <h1>Cloud Concepts</h1>
+      <p>Interactive 3D Learning Lab</p>
+    </div>
+
+    <div id="cards-container">
+      <div id="cards">
+        <a class="card" data-topic="autoscaling" href="auto-scaling.html">
+          <span class="card-icon">⚡</span>
+          <div class="card-title">Auto Scaling</div>
+          <div class="card-desc">Watch instances spawn and terminate in real-time as traffic fluctuates. Drag the load slider to see elastic infrastructure respond.</div>
+          <span class="card-tag">Compute</span>
+        </a>
+        <a class="card" data-topic="loadbalancer" href="load-balancer.html">
+          <span class="card-icon">🔀</span>
+          <div class="card-title">Load Balancer</div>
+          <div class="card-desc">See traffic packets route across targets. Toggle between round-robin, least-connections, and weighted algorithms.</div>
+          <span class="card-tag">Networking</span>
+        </a>
+        <a class="card" data-topic="vpc" href="vpc.html">
+          <span class="card-icon">🛡️</span>
+          <div class="card-title">VPC & Subnets</div>
+          <div class="card-desc">Explore a 3D network topology with public/private subnets, NAT gateways, internet gateways, and security groups.</div>
+          <span class="card-tag">Networking</span>
+        </a>
+        <a class="card" data-topic="serverless" href="serverless.html">
+          <span class="card-icon">λ</span>
+          <div class="card-title">Serverless</div>
+          <div class="card-desc">Trigger Lambda functions and watch cold starts, execution, and scaling. Compare event sources like API Gateway, S3, and SQS.</div>
+          <span class="card-tag">Compute</span>
+        </a>
+        <a class="card" data-topic="containers" href="containers.html">
+          <span class="card-icon">📦</span>
+          <div class="card-title">Containers & Orchestration</div>
+          <div class="card-desc">Visualize Docker containers running inside pods, managed by a Kubernetes-style orchestrator. Scale replicas interactively.</div>
+          <span class="card-tag">Compute</span>
+        </a>
+        <a class="card" data-topic="cdn" href="cdn.html">
+          <span class="card-icon">🌍</span>
+          <div class="card-title">CDN & Edge</div>
+          <div class="card-desc">A globe showing edge locations caching content. Compare latency with and without CDN. See cache hit/miss in real-time.</div>
+          <span class="card-tag">Content Delivery</span>
+        </a>
+      </div>
+    </div>
+
+    <div id="footer">
+      <span>Built with Three.js · Orbit to explore</span>
+    </div>
+  </div>
 
   <script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js"
-    }
-  }
+  { "imports": { "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js" } }
   </script>
-
   <script type="module">
     import * as THREE from 'three';
 
-    // --- Scene Setup ---
-    const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x0a0a2e, 0.035);
-
-    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(5, 4, 8);
-    camera.lookAt(0, 0, 0);
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const canvas = document.getElementById('bg');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
-    document.body.appendChild(renderer.domElement);
 
-    // --- OrbitControls (inline minimal implementation) ---
-    class SimpleOrbitControls {
-      constructor(camera, domElement) {
-        this.camera = camera;
-        this.domElement = domElement;
-        this.target = new THREE.Vector3();
-        this.spherical = new THREE.Spherical();
-        this.sphericalDelta = new THREE.Spherical();
-        this.scale = 1;
-        this.rotateSpeed = 0.8;
-        this.zoomSpeed = 1.2;
-        this.minDistance = 2;
-        this.maxDistance = 30;
-        this.isDown = false;
-        this.prev = { x: 0, y: 0 };
-        this.enableDamping = true;
-        this.dampingFactor = 0.08;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(0, 0, 5);
 
-        const offset = new THREE.Vector3();
-        offset.copy(camera.position).sub(this.target);
-        this.spherical.setFromVector3(offset);
-
-        domElement.addEventListener('pointerdown', (e) => { this.isDown = true; this.prev = { x: e.clientX, y: e.clientY }; });
-        domElement.addEventListener('pointermove', (e) => {
-          if (!this.isDown) return;
-          const dx = e.clientX - this.prev.x;
-          const dy = e.clientY - this.prev.y;
-          this.sphericalDelta.theta -= (2 * Math.PI * dx / domElement.clientHeight) * this.rotateSpeed;
-          this.sphericalDelta.phi -= (2 * Math.PI * dy / domElement.clientHeight) * this.rotateSpeed;
-          this.prev = { x: e.clientX, y: e.clientY };
-        });
-        domElement.addEventListener('pointerup', () => { this.isDown = false; });
-        domElement.addEventListener('wheel', (e) => {
-          if (e.deltaY > 0) this.scale *= (1 / 0.95);
-          else this.scale *= 0.95;
-          e.preventDefault();
-        }, { passive: false });
-      }
-      update() {
-        const offset = new THREE.Vector3();
-        offset.copy(this.camera.position).sub(this.target);
-        this.spherical.setFromVector3(offset);
-        if (this.enableDamping) {
-          this.spherical.theta += this.sphericalDelta.theta * this.dampingFactor;
-          this.spherical.phi += this.sphericalDelta.phi * this.dampingFactor;
-        } else {
-          this.spherical.theta += this.sphericalDelta.theta;
-          this.spherical.phi += this.sphericalDelta.phi;
-        }
-        this.spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, this.spherical.phi));
-        this.spherical.radius *= this.scale;
-        this.spherical.radius = Math.max(this.minDistance, Math.min(this.maxDistance, this.spherical.radius));
-        this.scale = 1;
-        offset.setFromSpherical(this.spherical);
-        this.camera.position.copy(this.target).add(offset);
-        this.camera.lookAt(this.target);
-        if (this.enableDamping) {
-          this.sphericalDelta.theta *= (1 - this.dampingFactor);
-          this.sphericalDelta.phi *= (1 - this.dampingFactor);
-        } else {
-          this.sphericalDelta.set(0, 0, 0);
-        }
-      }
+    // Particle field
+    const count = 3000;
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3);
+    const cols = new Float32Array(count * 3);
+    const palette = [
+      [0, 0.96, 0.83], [0.48, 0.38, 1], [0.97, 0.15, 0.52],
+      [1, 0.75, 0.04], [0.23, 0.53, 1], [0.98, 0.34, 0.03]
+    ];
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 40;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 40;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 40;
+      const c = palette[Math.floor(Math.random() * palette.length)];
+      cols[i * 3] = c[0]; cols[i * 3 + 1] = c[1]; cols[i * 3 + 2] = c[2];
     }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+    const mat = new THREE.PointsMaterial({ size: 0.04, vertexColors: true, transparent: true, opacity: 0.6 });
+    const points = new THREE.Points(geo, mat);
+    scene.add(points);
 
-    const controls = new SimpleOrbitControls(camera, renderer.domElement);
-
-    // --- Lighting ---
-    const ambientLight = new THREE.AmbientLight(0x404080, 0.4);
-    scene.add(ambientLight);
-
-    const dirLight = new THREE.DirectionalLight(0xffeedd, 1.2);
-    dirLight.position.set(5, 8, 5);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.set(2048, 2048);
-    dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 50;
-    dirLight.shadow.camera.left = -10;
-    dirLight.shadow.camera.right = 10;
-    dirLight.shadow.camera.top = 10;
-    dirLight.shadow.camera.bottom = -10;
-    scene.add(dirLight);
-
-    const pointLight1 = new THREE.PointLight(0xff6b6b, 1.5, 15);
-    pointLight1.position.set(-3, 3, -3);
-    scene.add(pointLight1);
-
-    const pointLight2 = new THREE.PointLight(0x4ecdc4, 1.5, 15);
-    pointLight2.position.set(3, 2, 3);
-    scene.add(pointLight2);
-
-    // --- Ground Plane ---
-    const groundGeo = new THREE.PlaneGeometry(40, 40);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x1a1a3e, roughness: 0.8, metalness: 0.2 });
-    const ground = new THREE.Mesh(groundGeo, groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.5;
-    ground.receiveShadow = true;
-    scene.add(ground);
-
-    // --- Grid ---
-    const grid = new THREE.GridHelper(40, 40, 0x3a3a6e, 0x2a2a4e);
-    grid.position.y = -0.49;
-    scene.add(grid);
-
-    // --- Interactive Objects ---
-    const interactables = [];
-    const originalColors = new Map();
-
-    function createObject(geometry, color, position, name) {
-      const mat = new THREE.MeshStandardMaterial({
-        color, roughness: 0.3, metalness: 0.6,
-        emissive: new THREE.Color(color).multiplyScalar(0.1)
-      });
-      const mesh = new THREE.Mesh(geometry, mat);
-      mesh.position.copy(position);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      mesh.userData = { name, baseY: position.y, clicked: false };
-      scene.add(mesh);
-      interactables.push(mesh);
-      originalColors.set(mesh, color);
-      return mesh;
+    // Connecting lines
+    const lineGeo = new THREE.BufferGeometry();
+    const linePos = new Float32Array(600 * 3);
+    for (let i = 0; i < 600; i++) {
+      linePos[i * 3] = (Math.random() - 0.5) * 20;
+      linePos[i * 3 + 1] = (Math.random() - 0.5) * 20;
+      linePos[i * 3 + 2] = (Math.random() - 0.5) * 20;
     }
+    lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x7b61ff, transparent: true, opacity: 0.06 });
+    const lines = new THREE.LineSegments(lineGeo, lineMat);
+    scene.add(lines);
 
-    // Torus Knot
-    createObject(
-      new THREE.TorusKnotGeometry(0.7, 0.25, 100, 16),
-      0xff6b6b, new THREE.Vector3(0, 1.5, 0), 'Torus Knot'
-    );
-
-    // Icosahedron
-    createObject(
-      new THREE.IcosahedronGeometry(0.8, 0),
-      0x4ecdc4, new THREE.Vector3(-3, 1, -2), 'Icosahedron'
-    );
-
-    // Octahedron
-    createObject(
-      new THREE.OctahedronGeometry(0.8, 0),
-      0xffe66d, new THREE.Vector3(3, 1, -1), 'Octahedron'
-    );
-
-    // Dodecahedron
-    createObject(
-      new THREE.DodecahedronGeometry(0.7, 0),
-      0xa29bfe, new THREE.Vector3(-2, 1, 2.5), 'Dodecahedron'
-    );
-
-    // Torus
-    createObject(
-      new THREE.TorusGeometry(0.6, 0.25, 16, 50),
-      0x55efc4, new THREE.Vector3(2.5, 1, 3), 'Torus'
-    );
-
-    // Cylinder
-    createObject(
-      new THREE.CylinderGeometry(0.4, 0.6, 1.5, 8),
-      0xfd79a8, new THREE.Vector3(0, 0.75, -3.5), 'Cylinder'
-    );
-
-    // --- Raycaster for Click Interaction ---
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
-    renderer.domElement.addEventListener('click', (event) => {
-      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(interactables);
-      if (intersects.length > 0) {
-        const obj = intersects[0].object;
-        obj.userData.clicked = !obj.userData.clicked;
-        if (obj.userData.clicked) {
-          obj.material.emissive.setHex(0xffffff);
-          obj.material.emissiveIntensity = 0.5;
-        } else {
-          const col = originalColors.get(obj);
-          obj.material.emissive.set(new THREE.Color(col).multiplyScalar(0.1));
-          obj.material.emissiveIntensity = 1;
-        }
-      }
+    let mouseX = 0, mouseY = 0;
+    document.addEventListener('mousemove', (e) => {
+      mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+      mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
     });
-
-    // --- Starfield Background ---
-    const starGeo = new THREE.BufferGeometry();
-    const starCount = 2000;
-    const starPositions = new Float32Array(starCount * 3);
-    for (let i = 0; i < starCount * 3; i++) {
-      starPositions[i] = (Math.random() - 0.5) * 100;
-    }
-    starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-    const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.1, transparent: true, opacity: 0.8 });
-    const stars = new THREE.Points(starGeo, starMat);
-    scene.add(stars);
-
-    // --- Animation Loop ---
-    const clock = new THREE.Clock();
 
     function animate() {
       requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
-
-      // Rotate objects
-      interactables.forEach((obj, i) => {
-        obj.rotation.x += 0.005 + i * 0.002;
-        obj.rotation.y += 0.008 + i * 0.001;
-        // Floating animation
-        obj.position.y = obj.userData.baseY + Math.sin(t * 1.5 + i * 1.2) * 0.2;
-        // Scale pulse on clicked
-        if (obj.userData.clicked) {
-          const s = 1 + Math.sin(t * 4) * 0.1;
-          obj.scale.set(s, s, s);
-        } else {
-          obj.scale.set(1, 1, 1);
-        }
-      });
-
-      // Animate point lights
-      pointLight1.position.x = Math.sin(t * 0.7) * 4;
-      pointLight1.position.z = Math.cos(t * 0.7) * 4;
-      pointLight2.position.x = Math.cos(t * 0.5) * 4;
-      pointLight2.position.z = Math.sin(t * 0.5) * 4;
-
-      // Rotate stars slowly
-      stars.rotation.y += 0.0002;
-
-      controls.update();
+      const t = performance.now() * 0.0001;
+      points.rotation.y = t * 0.5 + mouseX * 0.1;
+      points.rotation.x = t * 0.3 + mouseY * 0.1;
+      lines.rotation.y = t * 0.3;
+      lines.rotation.x = t * 0.2;
       renderer.render(scene, camera);
     }
-
     animate();
 
-    // --- Resize ---
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // --- Stats ---
-    const statsEl = document.getElementById('stats');
-    setInterval(() => {
-      statsEl.textContent = `Objects: ${interactables.length} · Triangles: ${renderer.info.render.triangles}`;
-    }, 500);
+    // Stagger card animations
+    document.querySelectorAll('.card').forEach((card, i) => {
+      setTimeout(() => card.classList.add('visible'), 200 + i * 120);
+    });
   </script>
 </body>
 </html>
