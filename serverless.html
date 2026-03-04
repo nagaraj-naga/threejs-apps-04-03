@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Serverless — Cloud 3D Lab</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #06060f; font-family: 'Outfit', sans-serif; color: #fff; }
+    canvas { display: block; }
+    .back-btn {
+      position: fixed; top: 20px; left: 20px; z-index: 20;
+      background: rgba(255,190,11,0.1); border: 1px solid rgba(255,190,11,0.3);
+      color: #ffbe0b; padding: 8px 18px; border-radius: 20px;
+      font-family: 'Space Mono', monospace; font-size: 13px;
+      cursor: pointer; text-decoration: none; backdrop-filter: blur(8px);
+    }
+    #title-bar {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      text-align: center; z-index: 15;
+    }
+    #title-bar h1 { font-family: 'Space Mono', monospace; font-size: 22px; color: #ffbe0b; }
+    #title-bar p { font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+    #trigger-panel {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      z-index: 20; background: rgba(6,6,15,0.85); border: 1px solid rgba(255,190,11,0.15);
+      border-radius: 20px; padding: 20px 28px; backdrop-filter: blur(16px);
+      display: flex; gap: 12px; align-items: center;
+    }
+    .trigger-btn {
+      padding: 12px 20px; border-radius: 12px; border: 1px solid rgba(255,190,11,0.3);
+      background: transparent; color: rgba(255,255,255,0.6); font-family: 'Space Mono', monospace;
+      font-size: 12px; cursor: pointer; transition: all 0.3s;
+    }
+    .trigger-btn:hover { background: rgba(255,190,11,0.15); color: #ffbe0b; border-color: #ffbe0b; }
+    .trigger-btn:active { transform: scale(0.95); }
+
+    #metrics {
+      position: fixed; top: 80px; right: 20px; z-index: 15;
+      background: rgba(6,6,15,0.8); border: 1px solid rgba(255,190,11,0.1);
+      border-radius: 14px; padding: 20px; width: 220px; backdrop-filter: blur(12px);
+    }
+    #metrics h3 { font-family: 'Space Mono', monospace; font-size: 13px; color: #ffbe0b; margin-bottom: 12px; }
+    .m-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: rgba(255,255,255,0.5); }
+    .m-row .val { color: #ffbe0b; font-family: 'Space Mono', monospace; font-weight: 700; }
+
+    #info-panel {
+      position: fixed; top: 80px; left: 20px; z-index: 15;
+      background: rgba(6,6,15,0.8); border: 1px solid rgba(255,190,11,0.1);
+      border-radius: 14px; padding: 20px; width: 260px;
+      backdrop-filter: blur(12px); font-size: 13px; line-height: 1.7;
+      color: rgba(255,255,255,0.5);
+    }
+    #info-panel h3 { font-family: 'Space Mono', monospace; font-size: 13px; color: #ffbe0b; margin-bottom: 8px; }
+    .hl { color: #ffbe0b; font-weight: 500; }
+
+    #log {
+      position: fixed; bottom: 100px; left: 20px; z-index: 15;
+      background: rgba(6,6,15,0.8); border: 1px solid rgba(255,190,11,0.08);
+      border-radius: 10px; padding: 12px 16px; width: 320px; max-height: 160px;
+      overflow-y: auto; backdrop-filter: blur(12px);
+      font-family: 'Space Mono', monospace; font-size: 11px; color: rgba(255,255,255,0.35);
+    }
+    .log-entry { margin-bottom: 4px; }
+    .log-cold { color: #f72585; }
+    .log-warm { color: #00f5d4; }
+    .log-done { color: #ffbe0b; }
+  </style>
+</head>
+<body>
+  <a class="back-btn" href="index.html">← Hub</a>
+  <div id="title-bar">
+    <h1>λ Serverless</h1>
+    <p>Functions that scale to zero</p>
+  </div>
+
+  <div id="info-panel">
+    <h3>How It Works</h3>
+    <span class="hl">Lambda functions</span> run code without provisioning servers.
+    <br><br>
+    <span class="hl">Cold start</span>: First invocation spins up a new container (slower).
+    <span class="hl">Warm start</span>: Reuses existing container (faster).
+    <br><br>
+    Click event sources to trigger functions and watch the execution lifecycle.
+  </div>
+
+  <div id="metrics">
+    <h3>Metrics</h3>
+    <div class="m-row"><span>Invocations</span><span class="val" id="invocations">0</span></div>
+    <div class="m-row"><span>Cold Starts</span><span class="val" id="cold-starts">0</span></div>
+    <div class="m-row"><span>Warm Starts</span><span class="val" id="warm-starts">0</span></div>
+    <div class="m-row"><span>Active</span><span class="val" id="active">0</span></div>
+    <div class="m-row"><span>Avg Duration</span><span class="val" id="avg-dur">0ms</span></div>
+  </div>
+
+  <div id="trigger-panel">
+    <button class="trigger-btn" data-source="api">🌐 API Gateway</button>
+    <button class="trigger-btn" data-source="s3">📁 S3 Event</button>
+    <button class="trigger-btn" data-source="sqs">📨 SQS Message</button>
+    <button class="trigger-btn" data-source="schedule">⏰ Schedule</button>
+  </div>
+
+  <div id="log"></div>
+
+  <script type="importmap">
+  { "imports": { "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js" } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x06060f, 0.025);
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(0, 10, 18);
+    camera.lookAt(0, 1, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    document.body.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0x404060, 0.4));
+    const dir = new THREE.DirectionalLight(0xffeedd, 0.7);
+    dir.position.set(5, 12, 5); dir.castShadow = true; scene.add(dir);
+    scene.add(Object.assign(new THREE.PointLight(0xffbe0b, 1.5, 25), { position: new THREE.Vector3(0, 6, 0) }));
+
+    // Ground
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x080820 }));
+    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.5; ground.receiveShadow = true; scene.add(ground);
+    scene.add(Object.assign(new THREE.GridHelper(60, 60, 0x151540, 0x0f0f30), { position: new THREE.Vector3(0, -0.49, 0) }));
+
+    // Event sources (left side)
+    const sourcePositions = {
+      api: new THREE.Vector3(-8, 2, -4),
+      s3: new THREE.Vector3(-8, 2, -1.3),
+      sqs: new THREE.Vector3(-8, 2, 1.3),
+      schedule: new THREE.Vector3(-8, 2, 4)
+    };
+    const sourceColors = { api: 0x3a86ff, s3: 0x00f5d4, sqs: 0xf72585, schedule: 0x7b61ff };
+
+    Object.entries(sourcePositions).forEach(([key, pos]) => {
+      const m = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.5, 0.3, 6),
+        new THREE.MeshStandardMaterial({ color: sourceColors[key], emissive: sourceColors[key], emissiveIntensity: 0.3, metalness: 0.7 })
+      );
+      m.position.copy(pos); m.castShadow = true; scene.add(m);
+    });
+
+    // Lambda service (center)
+    const lambdaHub = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(1.2, 0),
+      new THREE.MeshStandardMaterial({ color: 0xffbe0b, emissive: 0xffbe0b, emissiveIntensity: 0.25, metalness: 0.8, roughness: 0.2 })
+    );
+    lambdaHub.position.set(0, 2.5, 0); lambdaHub.castShadow = true; scene.add(lambdaHub);
+    const hubRing = new THREE.Mesh(
+      new THREE.TorusGeometry(1.8, 0.04, 16, 60),
+      new THREE.MeshBasicMaterial({ color: 0xffbe0b, transparent: true, opacity: 0.3 })
+    );
+    hubRing.position.copy(lambdaHub.position); hubRing.rotation.x = Math.PI / 2; scene.add(hubRing);
+
+    // Function execution slots (right)
+    const slotPositions = [];
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 3; col++) {
+        slotPositions.push(new THREE.Vector3(5 + col * 2.2, 1, -3 + row * 3));
+      }
+    }
+
+    const functionSlots = slotPositions.map(pos => {
+      const g = new THREE.Group();
+      // Base platform
+      const base = new THREE.Mesh(
+        new THREE.BoxGeometry(1.5, 0.15, 1.5),
+        new THREE.MeshStandardMaterial({ color: 0x1a1a3e, metalness: 0.5 })
+      );
+      g.add(base);
+      // Container (hidden initially)
+      const container = new THREE.Mesh(
+        new THREE.BoxGeometry(1.2, 0.01, 1.2),
+        new THREE.MeshStandardMaterial({ color: 0xffbe0b, emissive: 0xffbe0b, emissiveIntensity: 0, metalness: 0.6, transparent: true, opacity: 0 })
+      );
+      container.position.y = 0.4;
+      g.add(container);
+      g.position.copy(pos);
+      g.userData = { active: false, container, warmUntil: 0, executing: false };
+      scene.add(g);
+      return g;
+    });
+
+    // Stats
+    let stats = { invocations: 0, coldStarts: 0, warmStarts: 0, active: 0, durations: [] };
+    const logEl = document.getElementById('log');
+
+    function addLog(text, cls) {
+      const div = document.createElement('div');
+      div.className = 'log-entry ' + cls;
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+      logEl.prepend(div);
+      if (logEl.children.length > 30) logEl.removeChild(logEl.lastChild);
+    }
+
+    function updateMetrics() {
+      document.getElementById('invocations').textContent = stats.invocations;
+      document.getElementById('cold-starts').textContent = stats.coldStarts;
+      document.getElementById('warm-starts').textContent = stats.warmStarts;
+      document.getElementById('active').textContent = stats.active;
+      const avg = stats.durations.length > 0
+        ? Math.round(stats.durations.reduce((a, b) => a + b, 0) / stats.durations.length)
+        : 0;
+      document.getElementById('avg-dur').textContent = avg + 'ms';
+    }
+
+    // Invoke a function
+    const eventPackets = [];
+
+    function invokeFunction(source) {
+      stats.invocations++;
+      const now = performance.now();
+
+      // Find a warm slot first, then a free slot
+      let slot = functionSlots.find(s => !s.userData.executing && s.userData.warmUntil > now);
+      let isCold = false;
+
+      if (!slot) {
+        slot = functionSlots.find(s => !s.userData.executing && !s.userData.active);
+        isCold = true;
+      }
+      if (!slot) {
+        slot = functionSlots.find(s => !s.userData.executing);
+        isCold = true;
+      }
+      if (!slot) { addLog('All slots busy!', 'log-cold'); return; }
+
+      if (isCold) {
+        stats.coldStarts++;
+        addLog(`COLD START [${source}] → Slot ${functionSlots.indexOf(slot)}`, 'log-cold');
+      } else {
+        stats.warmStarts++;
+        addLog(`WARM START [${source}] → Slot ${functionSlots.indexOf(slot)}`, 'log-warm');
+      }
+
+      // Send event packet
+      const p = new THREE.Mesh(
+        new THREE.SphereGeometry(0.08, 8, 8),
+        new THREE.MeshBasicMaterial({ color: sourceColors[source] })
+      );
+      p.position.copy(sourcePositions[source]);
+      const waypoints = [sourcePositions[source].clone(), lambdaHub.position.clone(), slot.position.clone().setY(2)];
+      p.userData = { waypoints, idx: 0, progress: 0, speed: 0.025, slot, isCold, source };
+      scene.add(p);
+      eventPackets.push(p);
+    }
+
+    function executeSlot(slot, isCold) {
+      slot.userData.executing = true;
+      slot.userData.active = true;
+      stats.active++;
+      updateMetrics();
+
+      const container = slot.userData.container;
+      const duration = isCold ? 800 + Math.random() * 1200 : 100 + Math.random() * 300;
+
+      // Animate container up
+      const startTime = performance.now();
+      const growInterval = setInterval(() => {
+        const elapsed = performance.now() - startTime;
+        const growDuration = isCold ? 500 : 100;
+        const p = Math.min(elapsed / growDuration, 1);
+        container.scale.y = p * 80;
+        container.material.opacity = p;
+        container.material.emissiveIntensity = 0.3 * p;
+        if (p >= 1) clearInterval(growInterval);
+      }, 16);
+
+      setTimeout(() => {
+        stats.durations.push(Math.round(duration));
+        if (stats.durations.length > 50) stats.durations.shift();
+        addLog(`DONE [${Math.round(duration)}ms] Slot ${functionSlots.indexOf(slot)}`, 'log-done');
+
+        slot.userData.executing = false;
+        slot.userData.warmUntil = performance.now() + 8000; // warm for 8s
+        stats.active--;
+        updateMetrics();
+
+        // Shrink after warm period
+        setTimeout(() => {
+          if (!slot.userData.executing && performance.now() > slot.userData.warmUntil) {
+            const shrinkStart = performance.now();
+            const shrinkInterval = setInterval(() => {
+              const p = Math.min((performance.now() - shrinkStart) / 400, 1);
+              container.scale.y = (1 - p) * 80;
+              container.material.opacity = 1 - p;
+              container.material.emissiveIntensity = 0.3 * (1 - p);
+              if (p >= 1) { clearInterval(shrinkInterval); slot.userData.active = false; }
+            }, 16);
+          }
+        }, 8000);
+      }, duration);
+    }
+
+    // Trigger buttons
+    document.querySelectorAll('.trigger-btn').forEach(btn => {
+      btn.addEventListener('click', () => invokeFunction(btn.dataset.source));
+    });
+
+    // Auto-trigger schedule
+    setInterval(() => invokeFunction('schedule'), 4000);
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+
+      lambdaHub.rotation.y = t * 0.3;
+      lambdaHub.rotation.x = Math.sin(t * 0.5) * 0.1;
+      hubRing.rotation.z = t * 0.4;
+      lambdaHub.position.y = 2.5 + Math.sin(t * 2) * 0.1;
+
+      // Update event packets
+      for (let i = eventPackets.length - 1; i >= 0; i--) {
+        const p = eventPackets[i];
+        const wp = p.userData.waypoints;
+        const idx = p.userData.idx;
+        if (idx >= wp.length - 1) {
+          executeSlot(p.userData.slot, p.userData.isCold);
+          scene.remove(p);
+          eventPackets.splice(i, 1);
+          continue;
+        }
+        p.userData.progress += p.userData.speed;
+        p.position.lerpVectors(wp[idx], wp[idx + 1], p.userData.progress);
+        if (p.userData.progress >= 1) {
+          p.userData.idx++;
+          p.userData.progress = 0;
+        }
+      }
+
+      // Pulse active slots
+      functionSlots.forEach(s => {
+        if (s.userData.executing) {
+          s.userData.container.material.emissiveIntensity = 0.3 + Math.sin(t * 8) * 0.2;
+        }
+      });
+
+      updateMetrics();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
