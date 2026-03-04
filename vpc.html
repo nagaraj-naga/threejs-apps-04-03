@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VPC & Subnets — Cloud 3D Lab</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #06060f; font-family: 'Outfit', sans-serif; color: #fff; }
+    canvas { display: block; }
+    .back-btn {
+      position: fixed; top: 20px; left: 20px; z-index: 20;
+      background: rgba(247,37,133,0.1); border: 1px solid rgba(247,37,133,0.3);
+      color: #f72585; padding: 8px 18px; border-radius: 20px;
+      font-family: 'Space Mono', monospace; font-size: 13px;
+      cursor: pointer; text-decoration: none; backdrop-filter: blur(8px);
+    }
+    #title-bar {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      text-align: center; z-index: 15;
+    }
+    #title-bar h1 { font-family: 'Space Mono', monospace; font-size: 22px; color: #f72585; }
+    #title-bar p { font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+    #legend {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      z-index: 20; background: rgba(6,6,15,0.85); border: 1px solid rgba(247,37,133,0.15);
+      border-radius: 20px; padding: 20px 32px; backdrop-filter: blur(16px);
+      display: flex; gap: 24px; align-items: center;
+    }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: rgba(255,255,255,0.6); }
+    .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
+    #info-panel {
+      position: fixed; top: 80px; right: 20px; z-index: 15;
+      background: rgba(6,6,15,0.8); border: 1px solid rgba(247,37,133,0.1);
+      border-radius: 14px; padding: 20px; width: 280px;
+      backdrop-filter: blur(12px); font-size: 13px; line-height: 1.7;
+      color: rgba(255,255,255,0.5);
+    }
+    #info-panel h3 { font-family: 'Space Mono', monospace; font-size: 13px; color: #f72585; margin-bottom: 8px; }
+    .hl { color: #f72585; font-weight: 500; }
+    .hl-green { color: #00f5d4; font-weight: 500; }
+    .hl-blue { color: #3a86ff; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <a class="back-btn" href="index.html">← Hub</a>
+  <div id="title-bar">
+    <h1>🛡️ VPC & Subnets</h1>
+    <p>Network isolation and security layers</p>
+  </div>
+
+  <div id="info-panel">
+    <h3>Architecture</h3>
+    A <span class="hl">VPC</span> is your isolated virtual network in the cloud.
+    <br><br>
+    <span class="hl-green">Public subnets</span> have routes to the Internet Gateway — web servers live here.
+    <br><br>
+    <span class="hl-blue">Private subnets</span> are isolated. Databases go here. They reach the internet via a <span class="hl">NAT Gateway</span>.
+    <br><br>
+    Watch traffic flow through the gateways and security groups.
+  </div>
+
+  <div id="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#f72585"></div>VPC Boundary</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#00f5d4"></div>Public Subnet</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#3a86ff"></div>Private Subnet</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ffbe0b"></div>Internet GW</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#7b61ff"></div>NAT GW</div>
+  </div>
+
+  <script type="importmap">
+  { "imports": { "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js" } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x06060f, 0.02);
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(0, 18, 22);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    document.body.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0x404080, 0.5));
+    const dir = new THREE.DirectionalLight(0xffeedd, 0.6);
+    dir.position.set(8, 15, 8); dir.castShadow = true; scene.add(dir);
+    scene.add(Object.assign(new THREE.PointLight(0xf72585, 1.5, 30), { position: new THREE.Vector3(0, 8, 0) }));
+
+    // Ground
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ color: 0x080820, roughness: 0.95 }));
+    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.5; ground.receiveShadow = true; scene.add(ground);
+    scene.add(Object.assign(new THREE.GridHelper(80, 80, 0x151540, 0x0f0f30), { position: new THREE.Vector3(0, -0.49, 0) }));
+
+    // Helper: bordered box (wireframe outline)
+    function createZone(w, h, d, color, pos) {
+      const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d));
+      const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.4 }));
+      line.position.copy(pos);
+      scene.add(line);
+      // Semi-transparent floor
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, d),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.05, side: THREE.DoubleSide })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.set(pos.x, pos.y - h / 2 + 0.01, pos.z);
+      scene.add(floor);
+      return line;
+    }
+
+    // VPC boundary
+    createZone(24, 4, 16, 0xf72585, new THREE.Vector3(0, 2, 0));
+
+    // Public subnet (left)
+    createZone(10, 3.5, 14, 0x00f5d4, new THREE.Vector3(-6, 1.75, 0));
+
+    // Private subnet (right)
+    createZone(10, 3.5, 14, 0x3a86ff, new THREE.Vector3(6, 1.75, 0));
+
+    // Internet Gateway (top)
+    const igw = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.6, 0.6, 0.4, 6),
+      new THREE.MeshStandardMaterial({ color: 0xffbe0b, emissive: 0xffbe0b, emissiveIntensity: 0.4, metalness: 0.8 })
+    );
+    igw.position.set(0, 2, -9); igw.castShadow = true; scene.add(igw);
+
+    // NAT Gateway (between subnets)
+    const nat = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.5, 0.5, 0.4, 6),
+      new THREE.MeshStandardMaterial({ color: 0x7b61ff, emissive: 0x7b61ff, emissiveIntensity: 0.4, metalness: 0.8 })
+    );
+    nat.position.set(0, 2, 2); nat.castShadow = true; scene.add(nat);
+
+    // Internet cloud (above IGW)
+    const cloud = new THREE.Mesh(
+      new THREE.SphereGeometry(1.5, 16, 16),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.15, wireframe: true })
+    );
+    cloud.position.set(0, 4, -13); scene.add(cloud);
+
+    // Public subnet instances (web servers)
+    const publicInstances = [];
+    [[-8, 1, -3], [-8, 1, 1], [-8, 1, 5], [-4, 1, -3], [-4, 1, 1]].forEach(([x, y, z]) => {
+      const m = new THREE.Mesh(
+        new THREE.BoxGeometry(0.7, 1, 0.7),
+        new THREE.MeshStandardMaterial({ color: 0x00f5d4, emissive: 0x00f5d4, emissiveIntensity: 0.15, metalness: 0.6 })
+      );
+      m.position.set(x, y, z); m.castShadow = true; scene.add(m); publicInstances.push(m);
+    });
+
+    // Private subnet instances (databases)
+    const privateInstances = [];
+    [[4, 1, -3], [4, 1, 1], [4, 1, 5], [8, 1, -3], [8, 1, 1]].forEach(([x, y, z]) => {
+      const m = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.4, 0.4, 0.8, 8),
+        new THREE.MeshStandardMaterial({ color: 0x3a86ff, emissive: 0x3a86ff, emissiveIntensity: 0.15, metalness: 0.6 })
+      );
+      m.position.set(x, y, z); m.castShadow = true; scene.add(m); privateInstances.push(m);
+    });
+
+    // Security group shields (wireframe spheres around instances)
+    publicInstances.forEach(inst => {
+      const shield = new THREE.Mesh(
+        new THREE.SphereGeometry(0.65, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0x00f5d4, wireframe: true, transparent: true, opacity: 0.1 })
+      );
+      shield.position.copy(inst.position);
+      scene.add(shield);
+    });
+
+    // Traffic packets
+    const packets = [];
+
+    function spawnInternetTraffic() {
+      const target = publicInstances[Math.floor(Math.random() * publicInstances.length)];
+      const p = new THREE.Mesh(
+        new THREE.SphereGeometry(0.07, 6, 6),
+        new THREE.MeshBasicMaterial({ color: 0xffbe0b })
+      );
+      p.position.copy(cloud.position);
+      const waypoints = [cloud.position.clone(), igw.position.clone(), target.position.clone()];
+      p.userData = { waypoints, waypointIdx: 0, progress: 0, speed: 0.012 + Math.random() * 0.008 };
+      scene.add(p);
+      packets.push(p);
+    }
+
+    function spawnNATTraffic() {
+      const source = privateInstances[Math.floor(Math.random() * privateInstances.length)];
+      const p = new THREE.Mesh(
+        new THREE.SphereGeometry(0.07, 6, 6),
+        new THREE.MeshBasicMaterial({ color: 0x7b61ff })
+      );
+      p.position.copy(source.position);
+      const waypoints = [source.position.clone(), nat.position.clone(), igw.position.clone(), cloud.position.clone()];
+      p.userData = { waypoints, waypointIdx: 0, progress: 0, speed: 0.01 + Math.random() * 0.008 };
+      scene.add(p);
+      packets.push(p);
+    }
+
+    // Internal traffic (public -> private via NAT)
+    function spawnInternalTraffic() {
+      const source = publicInstances[Math.floor(Math.random() * publicInstances.length)];
+      const target = privateInstances[Math.floor(Math.random() * privateInstances.length)];
+      const p = new THREE.Mesh(
+        new THREE.SphereGeometry(0.07, 6, 6),
+        new THREE.MeshBasicMaterial({ color: 0xf72585 })
+      );
+      p.position.copy(source.position);
+      const waypoints = [source.position.clone(), target.position.clone()];
+      p.userData = { waypoints, waypointIdx: 0, progress: 0, speed: 0.015 + Math.random() * 0.01 };
+      scene.add(p);
+      packets.push(p);
+    }
+
+    const clock = new THREE.Clock();
+    let spawnTimers = { internet: 0, nat: 0, internal: 0 };
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      const dt = clock.getDelta();
+
+      // Floating animations
+      publicInstances.forEach((m, i) => m.position.y = 1 + Math.sin(t * 1.5 + i) * 0.08);
+      privateInstances.forEach((m, i) => m.position.y = 1 + Math.sin(t * 1.5 + i + 3) * 0.08);
+      igw.rotation.y = t * 0.5;
+      nat.rotation.y = -t * 0.5;
+      cloud.rotation.y = t * 0.2;
+      cloud.position.y = 4 + Math.sin(t * 0.5) * 0.3;
+
+      // Spawn traffic
+      spawnTimers.internet += dt;
+      spawnTimers.nat += dt;
+      spawnTimers.internal += dt;
+      if (spawnTimers.internet > 0.4) { spawnInternetTraffic(); spawnTimers.internet = 0; }
+      if (spawnTimers.nat > 0.8) { spawnNATTraffic(); spawnTimers.nat = 0; }
+      if (spawnTimers.internal > 0.6) { spawnInternalTraffic(); spawnTimers.internal = 0; }
+
+      // Update packets
+      for (let i = packets.length - 1; i >= 0; i--) {
+        const p = packets[i];
+        const wp = p.userData.waypoints;
+        const idx = p.userData.waypointIdx;
+        if (idx >= wp.length - 1) {
+          scene.remove(p); packets.splice(i, 1); continue;
+        }
+        p.userData.progress += p.userData.speed;
+        p.position.lerpVectors(wp[idx], wp[idx + 1], p.userData.progress);
+        if (p.userData.progress >= 1) {
+          p.userData.waypointIdx++;
+          p.userData.progress = 0;
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
