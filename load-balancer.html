@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Load Balancer — Cloud 3D Lab</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #06060f; font-family: 'Outfit', sans-serif; color: #fff; }
+    canvas { display: block; }
+    .back-btn {
+      position: fixed; top: 20px; left: 20px; pointer-events: auto; z-index: 20;
+      background: rgba(123,97,255,0.1); border: 1px solid rgba(123,97,255,0.3);
+      color: #7b61ff; padding: 8px 18px; border-radius: 20px;
+      font-family: 'Space Mono', monospace; font-size: 13px;
+      cursor: pointer; text-decoration: none; transition: all 0.3s;
+      backdrop-filter: blur(8px);
+    }
+    .back-btn:hover { background: rgba(123,97,255,0.2); }
+
+    #title-bar {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      text-align: center; z-index: 15;
+    }
+    #title-bar h1 { font-family: 'Space Mono', monospace; font-size: 22px; color: #7b61ff; }
+    #title-bar p { font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+    #algo-panel {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      z-index: 20; background: rgba(6,6,15,0.85); border: 1px solid rgba(123,97,255,0.15);
+      border-radius: 20px; padding: 24px 32px; backdrop-filter: blur(16px);
+      display: flex; gap: 12px; align-items: center;
+    }
+    .algo-btn {
+      padding: 10px 20px; border-radius: 12px; border: 1px solid rgba(123,97,255,0.3);
+      background: transparent; color: rgba(255,255,255,0.5); font-family: 'Space Mono', monospace;
+      font-size: 12px; cursor: pointer; transition: all 0.3s;
+    }
+    .algo-btn.active {
+      background: rgba(123,97,255,0.2); color: #7b61ff;
+      border-color: #7b61ff; box-shadow: 0 0 20px rgba(123,97,255,0.2);
+    }
+    .algo-btn:hover { border-color: #7b61ff; color: #7b61ff; }
+
+    #stats-bar {
+      position: fixed; top: 80px; right: 20px; z-index: 15;
+      background: rgba(6,6,15,0.8); border: 1px solid rgba(123,97,255,0.1);
+      border-radius: 14px; padding: 20px; width: 240px;
+      backdrop-filter: blur(12px); font-size: 13px; color: rgba(255,255,255,0.55);
+    }
+    #stats-bar h3 { font-family: 'Space Mono', monospace; font-size: 13px; color: #7b61ff; margin-bottom: 12px; }
+    .stat-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .stat-row .val { color: #7b61ff; font-family: 'Space Mono', monospace; font-weight: 700; }
+
+    #info-panel {
+      position: fixed; top: 80px; left: 20px; z-index: 15;
+      background: rgba(6,6,15,0.8); border: 1px solid rgba(123,97,255,0.1);
+      border-radius: 14px; padding: 20px; width: 260px;
+      backdrop-filter: blur(12px); font-size: 13px; line-height: 1.7;
+      color: rgba(255,255,255,0.5);
+    }
+    #info-panel h3 { font-family: 'Space Mono', monospace; font-size: 13px; color: #7b61ff; margin-bottom: 8px; }
+    .hl { color: #7b61ff; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <a class="back-btn" href="index.html">← Hub</a>
+  <div id="title-bar">
+    <h1>🔀 Load Balancer</h1>
+    <p>Distributing traffic across targets</p>
+  </div>
+
+  <div id="info-panel">
+    <h3>How It Works</h3>
+    A load balancer distributes incoming requests across multiple <span class="hl">targets</span> to ensure no single server is overwhelmed.
+    <br><br>
+    <span class="hl">Round Robin</span>: Each target gets requests in turn.
+    <span class="hl">Least Connections</span>: Targets with fewer active connections get priority.
+    <span class="hl">Weighted</span>: Higher-capacity targets get more traffic.
+  </div>
+
+  <div id="stats-bar">
+    <h3>Live Metrics</h3>
+    <div class="stat-row"><span>Requests/sec</span><span class="val" id="rps">0</span></div>
+    <div class="stat-row"><span>Target A</span><span class="val" id="tA">0</span></div>
+    <div class="stat-row"><span>Target B</span><span class="val" id="tB">0</span></div>
+    <div class="stat-row"><span>Target C</span><span class="val" id="tC">0</span></div>
+    <div class="stat-row"><span>Target D</span><span class="val" id="tD">0</span></div>
+    <div class="stat-row"><span>Algorithm</span><span class="val" id="algoName">RR</span></div>
+  </div>
+
+  <div id="algo-panel">
+    <button class="algo-btn active" data-algo="roundrobin">Round Robin</button>
+    <button class="algo-btn" data-algo="leastconn">Least Conn</button>
+    <button class="algo-btn" data-algo="weighted">Weighted</button>
+  </div>
+
+  <script type="importmap">
+  { "imports": { "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js" } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x06060f, 0.03);
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(0, 10, 16);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    document.body.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0x404080, 0.5));
+    const dir = new THREE.DirectionalLight(0xffeedd, 0.8);
+    dir.position.set(5, 10, 5); dir.castShadow = true; scene.add(dir);
+    scene.add(new THREE.PointLight(0x7b61ff, 2, 25).copy(Object.assign(new THREE.PointLight(0x7b61ff, 2, 25), {position: new THREE.Vector3(-6, 5, -4)})));
+
+    const pl = new THREE.PointLight(0x7b61ff, 2, 25); pl.position.set(-6, 5, -4); scene.add(pl);
+    const pl2 = new THREE.PointLight(0xf72585, 1, 20); pl2.position.set(6, 3, 4); scene.add(pl2);
+
+    // Ground
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x0a0a2e, roughness: 0.9 }));
+    ground.rotation.x = -Math.PI / 2; ground.position.y = -1; ground.receiveShadow = true; scene.add(ground);
+    const grid = new THREE.GridHelper(60, 60, 0x1a1a4e, 0x12123a); grid.position.y = -0.99; scene.add(grid);
+
+    // Client (left side)
+    const client = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.6, 0.6, 0.3, 32),
+      new THREE.MeshStandardMaterial({ color: 0xffbe0b, emissive: 0xffbe0b, emissiveIntensity: 0.2, metalness: 0.6 })
+    );
+    client.position.set(-7, 1.5, 0); client.castShadow = true; scene.add(client);
+
+    // LB (center)
+    const lbGroup = new THREE.Group();
+    const lbBody = new THREE.Mesh(
+      new THREE.OctahedronGeometry(1, 0),
+      new THREE.MeshStandardMaterial({ color: 0x7b61ff, emissive: 0x7b61ff, emissiveIntensity: 0.3, metalness: 0.8, roughness: 0.2 })
+    );
+    lbBody.castShadow = true;
+    lbGroup.add(lbBody);
+    const lbRing = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.04, 16, 60), new THREE.MeshBasicMaterial({ color: 0x7b61ff, transparent: true, opacity: 0.4 }));
+    lbRing.rotation.x = Math.PI / 2; lbGroup.add(lbRing);
+    lbGroup.position.set(0, 1.5, 0);
+    scene.add(lbGroup);
+
+    // Targets (right side)
+    const targets = [];
+    const targetPositions = [
+      new THREE.Vector3(7, 1.5, -4.5),
+      new THREE.Vector3(7, 1.5, -1.5),
+      new THREE.Vector3(7, 1.5, 1.5),
+      new THREE.Vector3(7, 1.5, 4.5)
+    ];
+    const targetNames = ['A', 'B', 'C', 'D'];
+    const targetWeights = [3, 2, 1, 1]; // for weighted algorithm
+    const targetConnections = [0, 0, 0, 0];
+    const targetTotals = [0, 0, 0, 0];
+
+    targetPositions.forEach((pos, i) => {
+      const g = new THREE.Group();
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 1.4, 1),
+        new THREE.MeshStandardMaterial({ color: 0x00f5d4, emissive: 0x00f5d4, emissiveIntensity: 0.1, metalness: 0.6, roughness: 0.3 })
+      );
+      box.castShadow = true; g.add(box);
+      const light = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshBasicMaterial({ color: 0x00ff88 }));
+      light.position.y = 0.85; g.add(light);
+      g.position.copy(pos);
+      g.userData = { name: targetNames[i], weight: targetWeights[i] };
+      scene.add(g);
+      targets.push(g);
+    });
+
+    // Static connection lines
+    function drawStaticLines() {
+      // Client -> LB
+      const pts1 = [client.position.clone(), lbGroup.position.clone()];
+      const g1 = new THREE.BufferGeometry().setFromPoints(pts1);
+      scene.add(new THREE.Line(g1, new THREE.LineBasicMaterial({ color: 0xffbe0b, transparent: true, opacity: 0.15 })));
+      // LB -> Targets
+      targets.forEach(t => {
+        const pts = [lbGroup.position.clone(), t.position.clone()];
+        const g = new THREE.BufferGeometry().setFromPoints(pts);
+        scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x7b61ff, transparent: true, opacity: 0.15 })));
+      });
+    }
+    drawStaticLines();
+
+    // Algorithm
+    let algo = 'roundrobin';
+    let rrIndex = 0;
+
+    document.querySelectorAll('.algo-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.algo-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        algo = btn.dataset.algo;
+        document.getElementById('algoName').textContent = algo === 'roundrobin' ? 'RR' : algo === 'leastconn' ? 'LC' : 'WR';
+      });
+    });
+
+    function pickTarget() {
+      if (algo === 'roundrobin') {
+        const idx = rrIndex % targets.length;
+        rrIndex++;
+        return idx;
+      } else if (algo === 'leastconn') {
+        let minConn = Infinity, minIdx = 0;
+        targetConnections.forEach((c, i) => { if (c < minConn) { minConn = c; minIdx = i; } });
+        return minIdx;
+      } else {
+        // Weighted random
+        const total = targetWeights.reduce((a, b) => a + b, 0);
+        let r = Math.random() * total;
+        for (let i = 0; i < targetWeights.length; i++) {
+          r -= targetWeights[i];
+          if (r <= 0) return i;
+        }
+        return 0;
+      }
+    }
+
+    // Packets
+    const packets = [];
+    const COLORS = [0xffbe0b, 0x00f5d4, 0xf72585, 0x7b61ff, 0x3a86ff];
+
+    function spawnPacket() {
+      const targetIdx = pickTarget();
+      targetConnections[targetIdx]++;
+      targetTotals[targetIdx]++;
+
+      const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.08, 8, 8),
+        new THREE.MeshBasicMaterial({ color })
+      );
+      mesh.position.copy(client.position);
+
+      // Phase 1: client -> LB, Phase 2: LB -> target
+      mesh.userData = {
+        phase: 1, progress: 0, speed: 0.02 + Math.random() * 0.01,
+        targetIdx,
+        start: client.position.clone(),
+        mid: lbGroup.position.clone(),
+        end: targets[targetIdx].position.clone()
+      };
+      scene.add(mesh);
+      packets.push(mesh);
+    }
+
+    let rps = 0, rpsCounter = 0, rpsTimer = 0;
+
+    const clock = new THREE.Clock();
+    let spawnTimer = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      const dt = clock.getDelta();
+
+      // LB animation
+      lbBody.rotation.y = t * 0.5;
+      lbRing.rotation.z = t * 0.3;
+      lbGroup.position.y = 1.5 + Math.sin(t * 2) * 0.1;
+
+      // Target floating
+      targets.forEach((tgt, i) => {
+        tgt.position.y = 1.5 + Math.sin(t * 1.5 + i * 1.5) * 0.1;
+        // Glow based on connections
+        const intensity = 0.1 + Math.min(targetConnections[i] / 5, 0.5);
+        tgt.children[0].material.emissiveIntensity = intensity;
+      });
+
+      // Spawn
+      spawnTimer += dt;
+      if (spawnTimer > 0.15) {
+        spawnPacket();
+        rpsCounter++;
+        spawnTimer = 0;
+      }
+
+      rpsTimer += dt;
+      if (rpsTimer > 1) {
+        rps = rpsCounter;
+        rpsCounter = 0;
+        rpsTimer = 0;
+        document.getElementById('rps').textContent = rps;
+      }
+
+      // Update packets
+      for (let i = packets.length - 1; i >= 0; i--) {
+        const p = packets[i];
+        p.userData.progress += p.userData.speed;
+
+        if (p.userData.phase === 1) {
+          p.position.lerpVectors(p.userData.start, p.userData.mid, p.userData.progress);
+          if (p.userData.progress >= 1) {
+            p.userData.phase = 2;
+            p.userData.progress = 0;
+          }
+        } else {
+          p.position.lerpVectors(p.userData.mid, p.userData.end, p.userData.progress);
+          if (p.userData.progress >= 1) {
+            targetConnections[p.userData.targetIdx] = Math.max(0, targetConnections[p.userData.targetIdx] - 1);
+            scene.remove(p);
+            packets.splice(i, 1);
+          }
+        }
+      }
+
+      // Update stats
+      document.getElementById('tA').textContent = targetTotals[0];
+      document.getElementById('tB').textContent = targetTotals[1];
+      document.getElementById('tC').textContent = targetTotals[2];
+      document.getElementById('tD').textContent = targetTotals[3];
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
