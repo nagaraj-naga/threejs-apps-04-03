@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auto Scaling — Cloud 3D Lab</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #06060f; font-family: 'Outfit', sans-serif; color: #fff; }
+    canvas { display: block; }
+
+    #ui {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 10;
+    }
+    .back-btn {
+      position: fixed; top: 20px; left: 20px;
+      pointer-events: auto; z-index: 20;
+      background: rgba(0,245,212,0.1); border: 1px solid rgba(0,245,212,0.3);
+      color: #00f5d4; padding: 8px 18px; border-radius: 20px;
+      font-family: 'Space Mono', monospace; font-size: 13px;
+      cursor: pointer; text-decoration: none; transition: all 0.3s;
+      backdrop-filter: blur(8px);
+    }
+    .back-btn:hover { background: rgba(0,245,212,0.2); }
+
+    #title-bar {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      text-align: center; z-index: 15;
+    }
+    #title-bar h1 {
+      font-family: 'Space Mono', monospace; font-size: 22px; font-weight: 700;
+      color: #00f5d4;
+    }
+    #title-bar p { font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+    #controls {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      pointer-events: auto; z-index: 20;
+      background: rgba(6,6,15,0.85); border: 1px solid rgba(0,245,212,0.15);
+      border-radius: 20px; padding: 24px 36px;
+      backdrop-filter: blur(16px); min-width: 400px; text-align: center;
+    }
+    #controls label {
+      font-family: 'Space Mono', monospace; font-size: 13px;
+      color: rgba(255,255,255,0.6); display: block; margin-bottom: 10px;
+    }
+    #load-slider {
+      -webkit-appearance: none; width: 100%; height: 6px;
+      background: linear-gradient(90deg, #00f5d4, #f72585);
+      border-radius: 3px; outline: none; cursor: pointer;
+    }
+    #load-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 22px; height: 22px;
+      background: #fff; border-radius: 50%; cursor: grab;
+      box-shadow: 0 0 20px rgba(0,245,212,0.5);
+    }
+    #metrics {
+      display: flex; justify-content: space-around; margin-top: 18px;
+      border-top: 1px solid rgba(255,255,255,0.06); padding-top: 14px;
+    }
+    .metric { text-align: center; }
+    .metric-val {
+      font-family: 'Space Mono', monospace; font-size: 26px; font-weight: 700;
+      color: #00f5d4;
+    }
+    .metric-label { font-size: 11px; color: rgba(255,255,255,0.35); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+
+    #info-panel {
+      position: fixed; top: 80px; right: 20px;
+      pointer-events: auto; z-index: 15;
+      background: rgba(6,6,15,0.8); border: 1px solid rgba(0,245,212,0.1);
+      border-radius: 14px; padding: 20px; width: 280px;
+      backdrop-filter: blur(12px); font-size: 13px; line-height: 1.7;
+      color: rgba(255,255,255,0.55);
+    }
+    #info-panel h3 {
+      font-family: 'Space Mono', monospace; font-size: 13px;
+      color: #00f5d4; margin-bottom: 8px;
+    }
+    #info-panel .highlight { color: #00f5d4; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <a class="back-btn" href="index.html">← Hub</a>
+
+  <div id="title-bar">
+    <h1>⚡ Auto Scaling</h1>
+    <p>Elastic compute that responds to demand</p>
+  </div>
+
+  <div id="info-panel">
+    <h3>How It Works</h3>
+    Auto Scaling adjusts the number of <span class="highlight">EC2 instances</span> based on demand metrics like CPU utilization.
+    <br><br>
+    <span class="highlight">Scale-out</span> adds instances when load increases.
+    <span class="highlight">Scale-in</span> removes them when load drops.
+    <br><br>
+    Drag the slider to simulate traffic changes and watch the infrastructure respond.
+  </div>
+
+  <div id="controls">
+    <label>TRAFFIC LOAD: <span id="load-val">30%</span></label>
+    <input type="range" id="load-slider" min="0" max="100" value="30">
+    <div id="metrics">
+      <div class="metric">
+        <div class="metric-val" id="instance-count">2</div>
+        <div class="metric-label">Instances</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val" id="cpu-val">30%</div>
+        <div class="metric-label">Avg CPU</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val" id="status-val">OK</div>
+        <div class="metric-label">Status</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="importmap">
+  { "imports": { "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js" } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    // Scene
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x06060f, 0.04);
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(0, 8, 14);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    document.body.appendChild(renderer.domElement);
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0x404080, 0.5));
+    const dir = new THREE.DirectionalLight(0xffeedd, 0.8);
+    dir.position.set(5, 10, 5); dir.castShadow = true;
+    scene.add(dir);
+    const pl1 = new THREE.PointLight(0x00f5d4, 2, 20); pl1.position.set(-5, 5, -5); scene.add(pl1);
+    const pl2 = new THREE.PointLight(0xf72585, 1.5, 20); pl2.position.set(5, 3, 5); scene.add(pl2);
+
+    // Ground
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(60, 60),
+      new THREE.MeshStandardMaterial({ color: 0x0a0a2e, roughness: 0.9 })
+    );
+    ground.rotation.x = -Math.PI / 2; ground.position.y = -1; ground.receiveShadow = true;
+    scene.add(ground);
+    const grid = new THREE.GridHelper(60, 60, 0x1a1a4e, 0x12123a);
+    grid.position.y = -0.99; scene.add(grid);
+
+    // Load Balancer (central sphere)
+    const lbGeo = new THREE.SphereGeometry(0.7, 32, 32);
+    const lbMat = new THREE.MeshStandardMaterial({ color: 0x7b61ff, emissive: 0x7b61ff, emissiveIntensity: 0.3, metalness: 0.8, roughness: 0.2 });
+    const lb = new THREE.Mesh(lbGeo, lbMat);
+    lb.position.set(0, 1.5, 0); lb.castShadow = true;
+    scene.add(lb);
+
+    // Label ring around LB
+    const ringGeo = new THREE.TorusGeometry(1.1, 0.03, 16, 60);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x7b61ff, transparent: true, opacity: 0.5 });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.copy(lb.position); ring.rotation.x = Math.PI / 2;
+    scene.add(ring);
+
+    // Instances
+    const instances = [];
+    const MAX_INSTANCES = 10;
+    const instancePositions = [];
+    const radius = 5;
+    for (let i = 0; i < MAX_INSTANCES; i++) {
+      const angle = (i / MAX_INSTANCES) * Math.PI * 2;
+      instancePositions.push(new THREE.Vector3(Math.cos(angle) * radius, 0.6, Math.sin(angle) * radius));
+    }
+
+    function createInstance(index) {
+      const group = new THREE.Group();
+      // Server box
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(0.8, 1.2, 0.8),
+        new THREE.MeshStandardMaterial({ color: 0x00f5d4, emissive: 0x00f5d4, emissiveIntensity: 0.15, metalness: 0.7, roughness: 0.3 })
+      );
+      box.castShadow = true;
+      group.add(box);
+
+      // Status light
+      const light = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0x00ff88 })
+      );
+      light.position.y = 0.7;
+      group.add(light);
+
+      // CPU bar background
+      const barBg = new THREE.Mesh(
+        new THREE.BoxGeometry(0.6, 0.05, 0.05),
+        new THREE.MeshBasicMaterial({ color: 0x1a1a4e })
+      );
+      barBg.position.set(0, -0.3, 0.41);
+      group.add(barBg);
+
+      // CPU bar fill
+      const barFill = new THREE.Mesh(
+        new THREE.BoxGeometry(0.01, 0.05, 0.05),
+        new THREE.MeshBasicMaterial({ color: 0x00f5d4 })
+      );
+      barFill.position.set(-0.3, -0.3, 0.42);
+      group.add(barFill);
+
+      const pos = instancePositions[index];
+      group.position.copy(pos);
+      group.userData = { index, targetScale: 1, cpu: 0, barFill };
+      group.scale.set(0, 0, 0);
+      scene.add(group);
+      return group;
+    }
+
+    // Connection lines (LB to instances)
+    const connectionLines = [];
+
+    function updateConnections() {
+      connectionLines.forEach(l => scene.remove(l));
+      connectionLines.length = 0;
+      instances.forEach(inst => {
+        if (inst.userData.targetScale < 0.5) return;
+        const points = [lb.position.clone(), inst.position.clone().setY(1)];
+        const geo = new THREE.BufferGeometry().setFromPoints(points);
+        const mat = new THREE.LineBasicMaterial({ color: 0x7b61ff, transparent: true, opacity: 0.25 });
+        const line = new THREE.Line(geo, mat);
+        scene.add(line);
+        connectionLines.push(line);
+      });
+    }
+
+    // Traffic particles
+    const particles = [];
+
+    function spawnParticle() {
+      const targetInst = instances.filter(i => i.userData.targetScale > 0.5);
+      if (targetInst.length === 0) return;
+      const target = targetInst[Math.floor(Math.random() * targetInst.length)];
+      const particle = new THREE.Mesh(
+        new THREE.SphereGeometry(0.06, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffbe0b })
+      );
+      particle.position.copy(lb.position);
+      particle.userData = {
+        target: target.position.clone().setY(1),
+        progress: 0, speed: 0.015 + Math.random() * 0.02
+      };
+      scene.add(particle);
+      particles.push(particle);
+    }
+
+    // Pre-create all instances
+    for (let i = 0; i < MAX_INSTANCES; i++) {
+      instances.push(createInstance(i));
+    }
+
+    // State
+    let currentLoad = 30;
+    let targetInstanceCount = 2;
+
+    const slider = document.getElementById('load-slider');
+    const loadVal = document.getElementById('load-val');
+    const instanceCountEl = document.getElementById('instance-count');
+    const cpuValEl = document.getElementById('cpu-val');
+    const statusValEl = document.getElementById('status-val');
+
+    slider.addEventListener('input', (e) => {
+      currentLoad = parseInt(e.target.value);
+      loadVal.textContent = currentLoad + '%';
+
+      // Scaling policy: 1 instance per ~15% load, min 1, max 10
+      targetInstanceCount = Math.max(1, Math.min(MAX_INSTANCES, Math.ceil(currentLoad / 15)));
+
+      instanceCountEl.textContent = targetInstanceCount;
+      const avgCpu = targetInstanceCount > 0 ? Math.round(currentLoad / targetInstanceCount * 1.2) : 0;
+      cpuValEl.textContent = Math.min(avgCpu, 99) + '%';
+
+      if (currentLoad > 85) {
+        statusValEl.textContent = 'WARN';
+        statusValEl.style.color = '#f72585';
+      } else if (currentLoad > 60) {
+        statusValEl.textContent = 'BUSY';
+        statusValEl.style.color = '#ffbe0b';
+      } else {
+        statusValEl.textContent = 'OK';
+        statusValEl.style.color = '#00f5d4';
+      }
+    });
+
+    // Animate
+    const clock = new THREE.Clock();
+    let particleTimer = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      const dt = clock.getDelta();
+
+      // Scale instances in/out
+      instances.forEach((inst, i) => {
+        const shouldBeActive = i < targetInstanceCount;
+        inst.userData.targetScale = shouldBeActive ? 1 : 0;
+        const s = inst.scale.x;
+        const target = inst.userData.targetScale;
+        const newS = THREE.MathUtils.lerp(s, target, 0.06);
+        inst.scale.set(newS, newS, newS);
+
+        // Floating
+        if (shouldBeActive) {
+          inst.position.y = instancePositions[i].y + Math.sin(t * 2 + i) * 0.15;
+          // CPU bar
+          const cpu = currentLoad / targetInstanceCount * 1.2 / 100;
+          const barW = Math.min(cpu, 1) * 0.6;
+          inst.userData.barFill.scale.x = Math.max(barW / 0.01, 1);
+          inst.userData.barFill.position.x = -0.3 + barW / 2;
+          // Color based on CPU
+          if (cpu > 0.8) inst.children[0].material.emissive.setHex(0xf72585);
+          else if (cpu > 0.5) inst.children[0].material.emissive.setHex(0xffbe0b);
+          else inst.children[0].material.emissive.set(0x00f5d4);
+          inst.children[0].material.emissiveIntensity = 0.15 + cpu * 0.3;
+        }
+      });
+
+      // LB pulse
+      lb.scale.setScalar(1 + Math.sin(t * 3) * 0.05);
+      ring.rotation.z = t * 0.5;
+
+      // Spawn particles based on load
+      particleTimer += currentLoad * 0.001;
+      if (particleTimer > 1) {
+        spawnParticle();
+        particleTimer = 0;
+      }
+
+      // Update particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.userData.progress += p.userData.speed;
+        if (p.userData.progress >= 1) {
+          scene.remove(p);
+          particles.splice(i, 1);
+        } else {
+          p.position.lerpVectors(lb.position, p.userData.target, p.userData.progress);
+          p.material.opacity = 1 - p.userData.progress;
+        }
+      }
+
+      updateConnections();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
