@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CDN &amp; Edge — Cloud 3D Lab</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{overflow:hidden;background:#06060f;font-family:'Outfit',sans-serif;color:#fff}
+    canvas{display:block}
+    .back-btn{position:fixed;top:20px;left:20px;z-index:20;background:rgba(251,86,7,0.1);border:1px solid rgba(251,86,7,0.3);color:#fb5607;padding:8px 18px;border-radius:20px;font-family:'Space Mono',monospace;font-size:13px;cursor:pointer;text-decoration:none;backdrop-filter:blur(8px);transition:all 0.3s}
+    .back-btn:hover{background:rgba(251,86,7,0.2)}
+    #title-bar{position:fixed;top:20px;left:50%;transform:translateX(-50%);text-align:center;z-index:15}
+    #title-bar h1{font-family:'Space Mono',monospace;font-size:22px;color:#fb5607}
+    #title-bar p{font-size:13px;color:rgba(255,255,255,0.4);margin-top:4px}
+    #controls{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(6,6,15,0.85);border:1px solid rgba(251,86,7,0.15);border-radius:20px;padding:20px 32px;backdrop-filter:blur(16px);display:flex;gap:16px;align-items:center}
+    .mode-btn{padding:12px 20px;border-radius:12px;border:1px solid rgba(251,86,7,0.3);background:transparent;color:rgba(255,255,255,0.5);font-family:'Space Mono',monospace;font-size:12px;cursor:pointer;transition:all 0.3s}
+    .mode-btn.active{background:rgba(251,86,7,0.2);color:#fb5607;border-color:#fb5607;box-shadow:0 0 20px rgba(251,86,7,0.2)}
+    .mode-btn:hover{border-color:#fb5607;color:#fb5607}
+    .req-btn{padding:12px 24px;border-radius:12px;border:1px solid rgba(0,245,212,0.4);background:rgba(0,245,212,0.1);color:#00f5d4;font-family:'Space Mono',monospace;font-size:13px;cursor:pointer;transition:all 0.3s}
+    .req-btn:hover{background:rgba(0,245,212,0.2)}
+    .req-btn:active{transform:scale(0.95)}
+    #info-panel{position:fixed;top:80px;right:20px;z-index:15;background:rgba(6,6,15,0.8);border:1px solid rgba(251,86,7,0.1);border-radius:14px;padding:20px;width:270px;backdrop-filter:blur(12px);font-size:13px;line-height:1.7;color:rgba(255,255,255,0.5)}
+    #info-panel h3{font-family:'Space Mono',monospace;font-size:13px;color:#fb5607;margin-bottom:8px}
+    .hl{color:#fb5607;font-weight:500}
+    .hl-g{color:#00f5d4;font-weight:500}
+    .hl-r{color:#f72585;font-weight:500}
+    #metrics{position:fixed;top:80px;left:20px;z-index:15;background:rgba(6,6,15,0.8);border:1px solid rgba(251,86,7,0.1);border-radius:14px;padding:20px;width:220px;backdrop-filter:blur(12px)}
+    #metrics h3{font-family:'Space Mono',monospace;font-size:13px;color:#fb5607;margin-bottom:12px}
+    .m-row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;color:rgba(255,255,255,0.5)}
+    .m-row .val{font-family:'Space Mono',monospace;font-weight:700}
+    .val-hit{color:#00f5d4}
+    .val-miss{color:#f72585}
+    .val-lat{color:#fb5607}
+    #latency-bar{position:fixed;top:260px;left:20px;z-index:15;background:rgba(6,6,15,0.8);border:1px solid rgba(251,86,7,0.08);border-radius:10px;padding:14px 16px;width:220px;backdrop-filter:blur(12px)}
+    #latency-bar .bar-label{font-family:'Space Mono',monospace;font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px}
+    .bar-track{height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;margin-bottom:10px}
+    .bar-fill{height:100%;border-radius:3px;transition:width 0.4s ease}
+    .bar-value{font-family:'Space Mono',monospace;font-size:11px;color:rgba(255,255,255,0.4);text-align:right;margin-top:-4px;margin-bottom:8px}
+  </style>
+</head>
+<body>
+  <a class="back-btn" href="index.html">&#8592; Hub</a>
+  <div id="title-bar">
+    <h1>CDN &amp; Edge</h1>
+    <p>Global content delivery network</p>
+  </div>
+
+  <div id="info-panel">
+    <h3>How It Works</h3>
+    A <span class="hl">CDN</span> caches content at <span class="hl">edge locations</span> worldwide, closer to users.
+    <br><br>
+    <span class="hl-g">Cache HIT</span>: Content served from nearest edge — fast!
+    <br>
+    <span class="hl-r">Cache MISS</span>: Edge fetches from origin server — slower.
+    <br><br>
+    Toggle CDN on/off to compare latency. Click "Send Request" to see content flow.
+  </div>
+
+  <div id="metrics">
+    <h3>Live Metrics</h3>
+    <div class="m-row"><span>Requests</span><span class="val val-lat" id="total-req">0</span></div>
+    <div class="m-row"><span>Cache Hits</span><span class="val val-hit" id="cache-hits">0</span></div>
+    <div class="m-row"><span>Cache Misses</span><span class="val val-miss" id="cache-misses">0</span></div>
+    <div class="m-row"><span>Hit Ratio</span><span class="val val-hit" id="hit-ratio">0%</span></div>
+  </div>
+
+  <div id="latency-bar">
+    <div class="bar-label">With CDN</div>
+    <div class="bar-track"><div class="bar-fill" id="cdn-bar" style="width:10%;background:#00f5d4"></div></div>
+    <div class="bar-value" id="cdn-lat">~15ms</div>
+    <div class="bar-label">Without CDN</div>
+    <div class="bar-track"><div class="bar-fill" id="nocdn-bar" style="width:80%;background:#f72585"></div></div>
+    <div class="bar-value" id="nocdn-lat">~200ms</div>
+  </div>
+
+  <div id="controls">
+    <button class="mode-btn active" id="btn-cdn-on">CDN ON</button>
+    <button class="mode-btn" id="btn-cdn-off">CDN OFF</button>
+    <button class="req-btn" id="btn-request">Send Request</button>
+  </div>
+
+  <script type="importmap">
+  {"imports":{"three":"https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js"}}
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x06060f, 0.008);
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 500);
+    camera.position.set(0, 20, 35);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    document.body.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0x404060, 0.4));
+    const dir = new THREE.DirectionalLight(0xffeedd, 0.5);
+    dir.position.set(10, 20, 10); dir.castShadow = true; scene.add(dir);
+
+    // Globe (wireframe sphere)
+    const globeGeo = new THREE.SphereGeometry(10, 36, 24);
+    const globeMat = new THREE.MeshBasicMaterial({color: 0x1a1a4e, wireframe: true, transparent: true, opacity: 0.15});
+    const globe = new THREE.Mesh(globeGeo, globeMat);
+    scene.add(globe);
+
+    // Solid inner globe
+    const innerGlobe = new THREE.Mesh(
+      new THREE.SphereGeometry(9.8, 36, 24),
+      new THREE.MeshStandardMaterial({color: 0x0a0a2e, roughness: 0.95, metalness: 0.1})
+    );
+    scene.add(innerGlobe);
+
+    // Origin server
+    const origin = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.8, 0),
+      new THREE.MeshStandardMaterial({color: 0xfb5607, emissive: 0xfb5607, emissiveIntensity: 0.4, metalness: 0.8})
+    );
+    // Place at "US East" on globe surface
+    const originLatLng = {lat: 38, lng: -77}; // Virginia
+    function latLngToVec3(lat, lng, r) {
+      const phi = (90 - lat) * Math.PI / 180;
+      const theta = (lng + 180) * Math.PI / 180;
+      return new THREE.Vector3(
+        -r * Math.sin(phi) * Math.cos(theta),
+        r * Math.cos(phi),
+        r * Math.sin(phi) * Math.sin(theta)
+      );
+    }
+    origin.position.copy(latLngToVec3(originLatLng.lat, originLatLng.lng, 10.5));
+    origin.castShadow = true;
+    scene.add(origin);
+    scene.add(new THREE.PointLight(0xfb5607, 2, 10).copy(Object.assign(new THREE.PointLight(0xfb5607, 2, 8), {position: origin.position.clone()})));
+
+    // Edge locations
+    const edgeLocations = [
+      {name: 'London', lat: 51.5, lng: -0.1},
+      {name: 'Frankfurt', lat: 50.1, lng: 8.7},
+      {name: 'Tokyo', lat: 35.7, lng: 139.7},
+      {name: 'Sydney', lat: -33.9, lng: 151.2},
+      {name: 'Mumbai', lat: 19.1, lng: 72.9},
+      {name: 'São Paulo', lat: -23.5, lng: -46.6},
+      {name: 'Singapore', lat: 1.3, lng: 103.8},
+      {name: 'LA', lat: 34.1, lng: -118.2},
+      {name: 'Chicago', lat: 41.9, lng: -87.6},
+      {name: 'Dubai', lat: 25.2, lng: 55.3},
+      {name: 'Seoul', lat: 37.6, lng: 127.0},
+      {name: 'Cape Town', lat: -33.9, lng: 18.4},
+    ];
+
+    const edgeMeshes = [];
+    edgeLocations.forEach(loc => {
+      const pos = latLngToVec3(loc.lat, loc.lng, 10.5);
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.25, 16, 16),
+        new THREE.MeshStandardMaterial({color: 0x00f5d4, emissive: 0x00f5d4, emissiveIntensity: 0.3, metalness: 0.7})
+      );
+      mesh.position.copy(pos);
+      mesh.userData = {name: loc.name, cached: Math.random() > 0.3};
+      scene.add(mesh);
+      edgeMeshes.push(mesh);
+
+      // Small ring around edge
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(0.45, 0.02, 8, 24),
+        new THREE.MeshBasicMaterial({color: 0x00f5d4, transparent: true, opacity: 0.2})
+      );
+      ring.position.copy(pos);
+      ring.lookAt(0, 0, 0);
+      scene.add(ring);
+    });
+
+    // User position (rotate around globe)
+    const user = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.2, 0.2, 0.15, 6),
+      new THREE.MeshStandardMaterial({color: 0xffbe0b, emissive: 0xffbe0b, emissiveIntensity: 0.5, metalness: 0.7})
+    );
+    scene.add(user);
+
+    // Connection lines (static: origin to edges)
+    edgeMeshes.forEach(edge => {
+      const curve = new THREE.QuadraticBezierCurve3(
+        origin.position.clone(),
+        origin.position.clone().add(edge.position).multiplyScalar(0.5).normalize().multiplyScalar(14),
+        edge.position.clone()
+      );
+      const pts = curve.getPoints(30);
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      const line = new THREE.Line(geo, new THREE.LineBasicMaterial({color: 0xfb5607, transparent: true, opacity: 0.06}));
+      scene.add(line);
+    });
+
+    // State
+    let cdnEnabled = true;
+    let stats = {total: 0, hits: 0, misses: 0};
+    const packets = [];
+
+    // Find nearest edge to user
+    function nearestEdge() {
+      let minDist = Infinity, nearest = null;
+      edgeMeshes.forEach(e => {
+        const d = user.position.distanceTo(e.position);
+        if (d < minDist) { minDist = d; nearest = e; }
+      });
+      return nearest;
+    }
+
+    function sendRequest() {
+      stats.total++;
+      const edge = nearestEdge();
+      const isHit = cdnEnabled && edge && edge.userData.cached;
+
+      if (cdnEnabled && edge) {
+        if (isHit) {
+          stats.hits++;
+          // User -> Edge (short)
+          createPacket(user.position.clone(), edge.position.clone(), 0x00f5d4, 0.025, () => {
+            flashEdge(edge, 0x00f5d4);
+            // Response back
+            createPacket(edge.position.clone(), user.position.clone(), 0x00f5d4, 0.03, null);
+          });
+        } else {
+          stats.misses++;
+          edge.userData.cached = true;
+          // User -> Edge -> Origin -> Edge -> User
+          createPacket(user.position.clone(), edge.position.clone(), 0xf72585, 0.025, () => {
+            flashEdge(edge, 0xf72585);
+            createPacket(edge.position.clone(), origin.position.clone(), 0xf72585, 0.015, () => {
+              flashOrigin();
+              createPacket(origin.position.clone(), edge.position.clone(), 0xfb5607, 0.015, () => {
+                flashEdge(edge, 0x00f5d4);
+                createPacket(edge.position.clone(), user.position.clone(), 0x00f5d4, 0.025, null);
+              });
+            });
+          });
+        }
+      } else {
+        stats.misses++;
+        // Direct: User -> Origin -> User (slow)
+        createPacket(user.position.clone(), origin.position.clone(), 0xf72585, 0.01, () => {
+          flashOrigin();
+          createPacket(origin.position.clone(), user.position.clone(), 0xfb5607, 0.01, null);
+        });
+      }
+      updateMetrics();
+    }
+
+    function createPacket(from, to, color, speed, onArrive) {
+      const mid = from.clone().add(to).multiplyScalar(0.5).normalize().multiplyScalar(14);
+      const curve = new THREE.QuadraticBezierCurve3(from, mid, to);
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12, 8, 8),
+        new THREE.MeshBasicMaterial({color, transparent: true, opacity: 1})
+      );
+      mesh.position.copy(from);
+      // Trail
+      const trailGeo = new THREE.BufferGeometry();
+      const trailPositions = new Float32Array(30 * 3);
+      trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+      const trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({color, transparent: true, opacity: 0.3}));
+      scene.add(mesh); scene.add(trail);
+      packets.push({mesh, trail, curve, progress: 0, speed, onArrive, trailHistory: []});
+    }
+
+    function flashEdge(edge, color) {
+      const orig = edge.material.emissiveIntensity;
+      edge.material.emissive.setHex(color);
+      edge.material.emissiveIntensity = 1;
+      setTimeout(() => { edge.material.emissive.setHex(0x00f5d4); edge.material.emissiveIntensity = 0.3; }, 300);
+    }
+    function flashOrigin() {
+      origin.material.emissiveIntensity = 1;
+      setTimeout(() => { origin.material.emissiveIntensity = 0.4; }, 300);
+    }
+
+    function updateMetrics() {
+      document.getElementById('total-req').textContent = stats.total;
+      document.getElementById('cache-hits').textContent = stats.hits;
+      document.getElementById('cache-misses').textContent = stats.misses;
+      const ratio = stats.total > 0 ? Math.round(stats.hits / stats.total * 100) : 0;
+      document.getElementById('hit-ratio').textContent = ratio + '%';
+    }
+
+    // Controls
+    document.getElementById('btn-cdn-on').addEventListener('click', () => {
+      cdnEnabled = true;
+      document.getElementById('btn-cdn-on').classList.add('active');
+      document.getElementById('btn-cdn-off').classList.remove('active');
+      document.getElementById('cdn-bar').style.width = '10%';
+      document.getElementById('cdn-lat').textContent = '~15ms';
+    });
+    document.getElementById('btn-cdn-off').addEventListener('click', () => {
+      cdnEnabled = false;
+      document.getElementById('btn-cdn-off').classList.add('active');
+      document.getElementById('btn-cdn-on').classList.remove('active');
+      document.getElementById('cdn-bar').style.width = '80%';
+      document.getElementById('cdn-lat').textContent = '~200ms';
+    });
+    document.getElementById('btn-request').addEventListener('click', sendRequest);
+
+    // Auto-send requests
+    setInterval(sendRequest, 2500);
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+
+      // Rotate globe slowly
+      globe.rotation.y = t * 0.05;
+      innerGlobe.rotation.y = t * 0.05;
+
+      // Move user around globe
+      const userLat = 45 + Math.sin(t * 0.3) * 30;
+      const userLng = t * 15;
+      user.position.copy(latLngToVec3(userLat, userLng, 11.2));
+      user.lookAt(0, 0, 0);
+
+      // Pulse edges
+      edgeMeshes.forEach((e, i) => {
+        e.scale.setScalar(1 + Math.sin(t * 2 + i) * 0.1);
+      });
+
+      // Origin rotate
+      origin.rotation.y = t * 0.5;
+
+      // Update packets
+      for (let i = packets.length - 1; i >= 0; i--) {
+        const p = packets[i];
+        p.progress += p.speed;
+        if (p.progress >= 1) {
+          scene.remove(p.mesh); scene.remove(p.trail);
+          if (p.onArrive) p.onArrive();
+          packets.splice(i, 1);
+          continue;
+        }
+        const pos = p.curve.getPoint(p.progress);
+        p.mesh.position.copy(pos);
+        // Trail
+        p.trailHistory.push(pos.clone());
+        if (p.trailHistory.length > 10) p.trailHistory.shift();
+        const trailPts = p.trailHistory;
+        const positions = p.trail.geometry.attributes.position.array;
+        for (let j = 0; j < 30; j++) {
+          const idx = Math.min(j, trailPts.length - 1);
+          if (j < trailPts.length) {
+            positions[j*3] = trailPts[idx].x;
+            positions[j*3+1] = trailPts[idx].y;
+            positions[j*3+2] = trailPts[idx].z;
+          }
+        }
+        p.trail.geometry.attributes.position.needsUpdate = true;
+        p.trail.geometry.setDrawRange(0, Math.min(trailPts.length, 10));
+        p.mesh.material.opacity = 1 - p.progress * 0.3;
+      }
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
